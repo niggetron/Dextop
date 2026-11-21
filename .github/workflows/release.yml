@@ -1,8 +1,9 @@
 name: Release
 
 on:
-  push:
-    branches: [main]
+  # Release Please creates pull requests, which requires the repository setting
+  # "Allow GitHub Actions to create and approve pull requests". Until that is
+  # enabled, use manual-release.yml (or run this workflow by hand once enabled).
   workflow_dispatch:
 
 permissions:
