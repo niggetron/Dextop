@@ -28,7 +28,7 @@
 
 ### Enhanced
 
-* `hiddenapibypass` upgraded from 6.1 to 6.2 for Android 16/17 hidden-API coverage.
+* Hidden-API bypass initialization moved to application startup for every process (kept at 6.1 because 6.2 requires `compileSdk` 37 while this Flutter/AGP stack compiles against 36).
 * arm64-only native library filtering now applies to debug github builds as well as release builds.
 * Physical mouse/deck-key and high-refresh-rate tuning enabled for the narrow Xiaomi tablet profile.
 * Native crash/tail diagnostics preserved through an in-memory tail that is exported even before the buffered flush.

@@ -214,9 +214,10 @@ dependencies {
     implementation("androidx.media3:media3-muxer:1.10.1")
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
-    // 6.2 is the first release that covers the Android 16/17 hidden-API changes;
-    // 6.1 predates API 36 and can silently fail to exempt newly restricted APIs.
-    implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.2")
+    // 6.2 requires compileSdk 37; this Flutter/AGP combination compiles against 36.
+    // The empty-prefix exemption used by DextopApplication is available in 6.1 and
+    // exempts all hidden APIs, including those added in Android 16.
+    implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.1")
     // Decompresses Linux container root filesystems (rootfs.tar.xz).
     implementation("org.tukaani:xz:1.10")
     implementation("org.apache.commons:commons-compress:1.28.0")
