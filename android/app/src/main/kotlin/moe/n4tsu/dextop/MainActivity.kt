@@ -156,7 +156,7 @@ open class MainActivity : FlutterActivity() {
                 runCatching {
                     contentResolver.openOutputStream(uri)?.use { stream ->
                         DiagnosticExport.write(this@MainActivity, stream, pendingZipOptions)
-                    } ?: error("The selected document could not be opened for writing")
+                    } ?: error("uri=$uri")
                 }.onSuccess { runOnUiThread { result.success(null) } }
                     .onFailure { error -> runOnUiThread { result.error("EXPORT_FAILED", error.message, null) } }
             }.start()

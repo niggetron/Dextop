@@ -1618,5 +1618,15 @@
   "uiProcessesAndPerformance": "Processes and performance",
   "uiClipboardAndShortcuts": "Clipboard and shortcuts",
   "uiReceivePreReleases": "Receive pre-releases",
-  "uiReceivePreReleasesDescription": "Also offer beta versions released before the stable release as updates. They may contain bugs."
+  "uiReceivePreReleasesDescription": "Also offer beta versions released before the stable release as updates. They may contain bugs.",
+  "uiExportDiagnosticLog": "Export diagnostic log",
+  "uiExportDiagnosticLogDescription": "The archive contains app logs, device details and capability results. Review what to include before exporting. Sensitive values are redacted.",
+  "uiIncludeSystemSettings": "Include system settings",
+  "uiIncludeSystemSettingsHint": "Overlay/freeform flags. Off by default.",
+  "uiIncludeProcDumps": "Include /proc dumps",
+  "uiIncludeProcDumpsHint": "Raw CPU and memory details. Off by default.",
+  "uiIncludeFullSessionLog": "Include full session log",
+  "uiIncludeFullSessionLogHint": "All persisted log segments. Off by default.",
+  "uiExport": "Export",
+  "uiExportDiagnosticZip": "Export diagnostic ZIP"
 }

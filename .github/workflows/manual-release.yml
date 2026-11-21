@@ -1,0 +1,82 @@
+name: Manual Release
+
+# Publishes a GitHub Release and attaches the arm64 debug APK, without needing
+# release-please's pull request (which requires the repository setting
+# "Allow GitHub Actions to create and approve pull requests" to be enabled).
+# Only `contents: write` is used, so this runs with the default GITHUB_TOKEN.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release version without leading v (e.g. 2.0.0-beta.3)
+        required: true
+        type: string
+      prerelease:
+        description: Mark as a pre-release
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-gradle
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Create the GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      version_code: ${{ steps.release.outputs.version_code }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate and create release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          PRERELEASE: ${{ inputs.prerelease }}
+          REPOSITORY: ${{ github.repository }}
+          TARGET: ${{ github.sha }}
+        run: |
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$'; then
+            echo "::error::$VERSION is not a valid version such as 2.0.0-beta.3"
+            exit 1
+          fi
+          tag="v$VERSION"
+          if gh release view "$tag" --repo "$REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::$tag already exists"
+            exit 1
+          fi
+          previous=$(git describe --tags --abbrev=0 "${TARGET}^" 2>/dev/null || true)
+          python3 tool/generate_release_notes.py "$previous" "$TARGET" > release-notes.md
+          # Every release bumps the version code, independent of pubspec.
+          base=$(awk -F'+' '/^version:/{print $2; exit}' pubspec.yaml)
+          version_code=$((base + 1))
+          flags=()
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+          gh release create "$tag" --repo "$REPOSITORY" --target "$TARGET" \
+            --title "Dextop $VERSION" --notes-file release-notes.md "${flags[@]}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
+
+  release-apk:
+    name: Build and publish the arm64 debug APK
+    needs: publish
+    if: needs.publish.outputs.tag != ''
+    uses: ./.github/workflows/release-apk.yml
+    with:
+      tag: ${{ needs.publish.outputs.tag }}
+      version_name: ${{ needs.publish.outputs.version }}
+      version_code: ${{ needs.publish.outputs.version_code }}

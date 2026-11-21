@@ -1618,5 +1618,15 @@
   "uiProcessesAndPerformance": "プロセスとパフォーマンス",
   "uiClipboardAndShortcuts": "クリップボードとショートカット",
   "uiReceivePreReleases": "プレリリースも受け取る",
-  "uiReceivePreReleasesDescription": "正式リリースの前のベータ版も、更新として通知します。不具合が含まれることがあります。"
+  "uiReceivePreReleasesDescription": "正式リリースの前のベータ版も、更新として通知します。不具合が含まれることがあります。",
+  "uiExportDiagnosticLog": "診断ログをエクスポート",
+  "uiExportDiagnosticLogDescription": "アーカイブにはアプリログ、デバイス情報、機能検出結果が含まれます。エクスポート前に含める項目を確認してください。機密情報は編集されます。",
+  "uiIncludeSystemSettings": "システム設定を含める",
+  "uiIncludeSystemSettingsHint": "オーバーレイ／フリーフォームのフラグ。既定はオフです。",
+  "uiIncludeProcDumps": "/proc ダンプを含める",
+  "uiIncludeProcDumpsHint": "生の CPU・メモリ情報。既定はオフです。",
+  "uiIncludeFullSessionLog": "セッションログ全体を含める",
+  "uiIncludeFullSessionLogHint": "保存されたすべてのログ。既定はオフです。",
+  "uiExport": "エクスポート",
+  "uiExportDiagnosticZip": "診断 ZIP をエクスポート"
 }

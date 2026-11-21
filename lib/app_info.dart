@@ -563,39 +563,35 @@ class _DiagnosticLogPageState extends State<_DiagnosticLogPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('Export diagnostic log',
+            Text(localText(sheetContext, 'uiExportDiagnosticLog'),
                 style: Theme.of(sheetContext).textTheme.titleLarge),
             const SizedBox(height: 8),
-            const Text(
-              'The archive contains app logs, device details and capability '
-              'results. Review what to include before exporting. Sensitive '
-              'values are redacted.',
-            ),
+            Text(localText(sheetContext, 'uiExportDiagnosticLogDescription')),
             CheckboxListTile(
               value: _includeSystemSettings,
               onChanged: (value) =>
                   setState(() => _includeSystemSettings = value ?? false),
-              title: const Text('Include system settings'),
-              subtitle: const Text('Overlay/freeform flags. Off by default.'),
+              title: Text(localText(sheetContext, 'uiIncludeSystemSettings')),
+              subtitle: Text(localText(sheetContext, 'uiIncludeSystemSettingsHint')),
             ),
             CheckboxListTile(
               value: _includeProcDumps,
               onChanged: (value) =>
                   setState(() => _includeProcDumps = value ?? false),
-              title: const Text('Include /proc dumps'),
-              subtitle: const Text('Raw CPU and memory details. Off by default.'),
+              title: Text(localText(sheetContext, 'uiIncludeProcDumps')),
+              subtitle: Text(localText(sheetContext, 'uiIncludeProcDumpsHint')),
             ),
             CheckboxListTile(
               value: _includeFullSessionLog,
               onChanged: (value) =>
                   setState(() => _includeFullSessionLog = value ?? false),
-              title: const Text('Include full session log'),
-              subtitle: const Text('All persisted log segments. Off by default.'),
+              title: Text(localText(sheetContext, 'uiIncludeFullSessionLog')),
+              subtitle: Text(localText(sheetContext, 'uiIncludeFullSessionLogHint')),
             ),
             const SizedBox(height: 8),
             FilledButton(
               onPressed: () => Navigator.of(sheetContext).pop(true),
-              child: const Text('Export'),
+              child: Text(localText(sheetContext, 'uiExport')),
             ),
           ],
         ),
@@ -628,7 +624,7 @@ class _DiagnosticLogPageState extends State<_DiagnosticLogPage> {
     final actions = <Widget>[
       M3EIconButton(
         variant: M3EIconButtonVariant.standard,
-        tooltip: 'Export diagnostic ZIP',
+        tooltip: localText(context, 'uiExportDiagnosticZip'),
         onPressed: loading ? null : () => exportZip(share: false),
         icon: const Icon(M3EIcons.archive_outlined),
       ),

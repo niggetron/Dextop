@@ -1618,5 +1618,15 @@
   "uiProcessesAndPerformance": "Processos e desempenho",
   "uiClipboardAndShortcuts": "Área de transferência e atalhos",
   "uiReceivePreReleases": "Receber pré-lançamentos",
-  "uiReceivePreReleasesDescription": "Oferecer também como atualizações as versões beta lançadas antes da versão estável. Podem conter erros."
+  "uiReceivePreReleasesDescription": "Oferecer também como atualizações as versões beta lançadas antes da versão estável. Podem conter erros.",
+  "uiExportDiagnosticLog": "Exportar log de diagnóstico",
+  "uiExportDiagnosticLogDescription": "O arquivo contém logs do app, detalhes do dispositivo e resultados de capacidades. Revise o que incluir antes de exportar. Valores sensíveis são redigidos.",
+  "uiIncludeSystemSettings": "Incluir configurações do sistema",
+  "uiIncludeSystemSettingsHint": "Sinalizadores de sobreposição e janela livre. Desativado por padrão.",
+  "uiIncludeProcDumps": "Incluir dumps de /proc",
+  "uiIncludeProcDumpsHint": "Detalhes brutos de CPU e memória. Desativado por padrão.",
+  "uiIncludeFullSessionLog": "Incluir log completo da sessão",
+  "uiIncludeFullSessionLogHint": "Todos os segmentos de log salvos. Desativado por padrão.",
+  "uiExport": "Exportar",
+  "uiExportDiagnosticZip": "Exportar ZIP de diagnóstico"
 }

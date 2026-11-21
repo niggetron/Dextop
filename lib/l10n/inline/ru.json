@@ -1618,5 +1618,15 @@
   "uiProcessesAndPerformance": "Процессы и производительность",
   "uiClipboardAndShortcuts": "Буфер обмена и ярлыки",
   "uiReceivePreReleases": "Получать предварительные версии",
-  "uiReceivePreReleasesDescription": "Предлагать как обновления и бета-версии, выходящие до стабильного выпуска. В них могут быть ошибки."
+  "uiReceivePreReleasesDescription": "Предлагать как обновления и бета-версии, выходящие до стабильного выпуска. В них могут быть ошибки.",
+  "uiExportDiagnosticLog": "Экспорт журнала диагностики",
+  "uiExportDiagnosticLogDescription": "Архив содержит журналы приложения, сведения об устройстве и результаты проверок. Проверьте состав перед экспортом. Конфиденциальные значения удалены.",
+  "uiIncludeSystemSettings": "Включить системные настройки",
+  "uiIncludeSystemSettingsHint": "Флаги оверлея и свободного режима. По умолчанию выключено.",
+  "uiIncludeProcDumps": "Включить дампы /proc",
+  "uiIncludeProcDumpsHint": "Необработанные данные CPU и памяти. По умолчанию выключено.",
+  "uiIncludeFullSessionLog": "Включить полный журнал сеанса",
+  "uiIncludeFullSessionLogHint": "Все сохранённые журналы. По умолчанию выключено.",
+  "uiExport": "Экспорт",
+  "uiExportDiagnosticZip": "Экспорт диагностического ZIP"
 }

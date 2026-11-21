@@ -12638,12 +12638,12 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
         val service = systemService("window", "android.view.IWindowManager")
         val resolved = Class.forName("android.view.IWindowManager").methods.firstOrNull { m ->
             m.name == method && m.parameterTypes.size == args.size
-        } ?: error("$method overload with ${args.size} args not found")
+        } ?: error("method=$method")
         resolved.invoke(service, *args)
         OperationLog.i(this, "XiaomiMetrics", "$method applied args=${args.toList()}")
         true
-    }.getOrElse { error ->
-        OperationLog.w(this, "XiaomiMetrics", "$method unavailable/rejected args=${args.toList()}", error)
+    }.getOrElse { failure ->
+        OperationLog.w(this, "XiaomiMetrics", "$method unavailable/rejected args=${args.toList()}", failure)
         false
     }
 

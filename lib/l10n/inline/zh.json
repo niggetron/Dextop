@@ -1618,5 +1618,15 @@
   "uiProcessesAndPerformance": "进程和性能",
   "uiClipboardAndShortcuts": "剪贴板和快捷方式",
   "uiReceivePreReleases": "接收预发布版本",
-  "uiReceivePreReleasesDescription": "在正式版发布之前，也将测试版作为更新通知。其中可能包含错误。"
+  "uiReceivePreReleasesDescription": "在正式版发布之前，也将测试版作为更新通知。其中可能包含错误。",
+  "uiExportDiagnosticLog": "导出诊断日志",
+  "uiExportDiagnosticLogDescription": "归档包含应用日志、设备信息和功能检测结果。导出前请确认包含内容。敏感值已脱敏。",
+  "uiIncludeSystemSettings": "包含系统设置",
+  "uiIncludeSystemSettingsHint": "叠加/自由窗口标志，默认关闭。",
+  "uiIncludeProcDumps": "包含 /proc 转储",
+  "uiIncludeProcDumpsHint": "原始 CPU 和内存信息，默认关闭。",
+  "uiIncludeFullSessionLog": "包含完整会话日志",
+  "uiIncludeFullSessionLogHint": "所有已保存的日志，默认关闭。",
+  "uiExport": "导出",
+  "uiExportDiagnosticZip": "导出诊断 ZIP"
 }
