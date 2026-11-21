@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// Bridges Dart/Flutter errors and explicit events into the native, privacy-
@@ -63,7 +64,7 @@ abstract final class DextopLogger {
       'tag': tag,
       'message': message,
       'fields': fields,
-      if (stack != null) 'stack': stack,
+      'stack': ?stack,
     }).catchError((Object _) {
       // Logging must never break the app; logcat is a second copy.
     }));
