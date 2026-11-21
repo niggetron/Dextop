@@ -69,7 +69,7 @@ You can report bugs, submit device reports, and request features there.
 | Samsung DeX (earlier than One UI 8) | Limited and likely incompatible | Older DeX implementations may not provide the display and window-management behavior required by Dextop. |
 | Google Pixel | Limited and incomplete | Depends on Android's freeform/desktop implementation and hidden API availability. Some features may not work. |
 | OPPO ColorOS desktop | Limited and incomplete | The desktop can be displayed, but platform components such as the taskbar may not appear. |
-| Xiaomi devices running HyperOS or later | Disabled | MIUI and HyperOS are not supported. |
+| Xiaomi devices running HyperOS or later | Experimental / partial (Android 16) | This fork keeps the `xiaomi_hyperos` device profile active: virtual-display mirroring, session start and touch gestures work on tested HyperOS 3.0 devices. Freeform app launching and multi-touch pinch/scroll remain firmware-dependent. See [Xiaomi notes](#xiaomi). |
 | Other Android devices | Experimental | Virtual-display, mirroring, and freeform support varies by manufacturer, model, and OS update. |
 
 Android Auto support is exposed through a parked `CAR_LAUNCHER` activity and a separate Android for Cars App Library driving service on Android 15 and later. The Android Auto host decides whether each entry is shown and which input events it supplies.
@@ -145,14 +145,26 @@ _Community-submitted and reviewed device report_
 <details>
 <summary><strong>Xiaomi</strong></summary>
 
-> The desktop environment is disabled on Xiaomi devices running HyperOS or later. MIUI and HyperOS are not supported.
+> HyperOS support is **experimental** in this fork. The `xiaomi_hyperos` device profile and its HyperOS-specific workarounds are enabled in code (originally verified on the Xiaomi 14 Ultra, Android 16). On Android 16 the `xiaomi_hyperos` / `xiaomi_redmi_pad_pro_5g` profiles restore the freeform globals and per-display windowing configuration that the generic SDK 36 branch otherwise disables. Results still depend on the exact HyperOS firmware.
 
 | Device | Model | Tested software | Status |
 | --- | --- | --- | --- |
-| POCO X7 Pro 5G | 2412DPC0AG (`rodin`) | Android 16 (API 36) / HyperOS 3.0 / `OS3.0.301.0.WOJMIXM` | ❌ Not working at this time |
-| POCO X7 Pro | 2412DPC0AG (`rodin`) | Android 16 (API 36) / HyperOS 3.0 / `OS3.0.301.0.WOJMIXM` | ❌ Not working at this time |
+| POCO X7 Pro 5G | 2412DPC0AG (`rodin`) | Android 16 (API 36) / HyperOS 3.0 / `OS3.0.301.0.WOJMIXM` | 🟡 Partial (mirroring works; app launch / multi-touch issues) |
+| POCO X7 Pro | 2412DPC0AG (`rodin`) | Android 16 (API 36) / HyperOS 3.0 / `OS3.0.301.0.WOJMIXM` | 🟡 Partial (mirroring works; app launch / multi-touch issues) |
 
 _Community-submitted and reviewed device report_
+
+### Xiaomi notes
+
+On HyperOS the privileged runtime, hidden-API bypass and forced freeform settings are required. If an app does not appear on the desktop, export a diagnostic ZIP (Settings → App information → Operation log → Export ZIP) and check `windowing display=... strategy=... success=...` plus the `XiaomiMetrics` and `CapabilityProbe` lines. The following feature switches are read from `FlutterSharedPreferences` and default to the fixed values:
+
+| Key | Default | Purpose |
+| --- | --- | --- |
+| `xiaomi_force_freeform` | `true` | Restore `enable_freeform_support=1` and `wm set-display-windowing-mode 5` on SDK 36+ |
+| `xiaomi_pin_metrics` | `true` | Pin forced virtual-display size/density (HyperOS resets them otherwise) |
+| `xiaomi_laptop_direct_display` | `true` | Keep the direct-display workaround when laptop mode is on |
+| `xiaomi_tablet_touch_mode` | `direct` | Touch injection strategy (`accessibility`, `raw`, `direct`) |
+| `xiaomi_topology_layout` | auto | Override the Android 16 display-topology parcel layout |
 
 </details>
 
@@ -173,6 +185,32 @@ Root, Stellar, Shizuku, and other compatible privileged services remain supporte
 Install Dextop from [Google Play](https://play.google.com/store/apps/details?id=moe.n4tsu.gpdextop).
 
 Alternatively, download the latest signed APK from [GitHub Releases](https://github.com/NarYuki/Dextop/releases/latest).
+
+### Releases from this fork (niggetron/Dextop)
+
+Every publish (stable release, beta release or manual `workflow_dispatch`) runs
+`.github/workflows/release-apk.yml`, which builds an **arm64-only, debug-signed**
+APK and attaches it to the GitHub Release. This means:
+
+- **Debug signed** — installable without any secrets or keystore, but not
+  accepted by Google Play and not trusted by the Android Auto companion apps.
+- **Unique package name per build** — the github flavor uses
+  `moe.n4tsu.dextop.r<hash>` (your `versionCode`/`versionName` are also bumped).
+  Consecutive releases install **side by side** as separate apps rather than
+  updating each other. This is intentional: it lets you keep a known-good build
+  while trying a new one. It also means settings are not carried over.
+- Release notes are generated from Conventional Commits into **Added, Fixed,
+  Removed, Enhanced and Upgraded** sections.
+
+Download these assets from [this fork's Releases](https://github.com/niggetron/Dextop/releases/latest).
+
+### Exporting diagnostics
+
+Dextop keeps a privacy-filtered rolling log. Open **Settings → App information →
+Operation log → Export ZIP** to save a sanitized archive through the system file
+picker. Sensitive sections (system settings, `/proc` dumps and the full session
+log) are **off by default** and require explicit consent. Flutter/Dart errors
+from both the main UI and the overlay engine are captured in the same log.
 
 ### Nightly builds
 

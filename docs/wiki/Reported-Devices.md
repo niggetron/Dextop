@@ -467,7 +467,7 @@ These entries are generated from manually reviewed device reports. Compatibility
 <details>
 <summary><strong>Xiaomi</strong> — 2 verified configurations</summary>
 
-> The desktop environment is disabled on Xiaomi devices running HyperOS or later. MIUI and HyperOS are not supported.
+> HyperOS support is experimental in this fork. The `xiaomi_hyperos` device profile is active; virtual-display mirroring, session start and touch gestures work on tested HyperOS 3.0 / Android 16 firmware, while freeform app launching and multi-touch pinch/scroll remain firmware-dependent. Export a diagnostics ZIP from Settings → App information → Operation log when reporting a HyperOS issue.
 
 <details>
 <summary><strong>POCO X7 Pro 5G — 2412DPC0AG</strong> / rodin / HyperOS 3.0 / OS3.0.301.0.WOJMIXM — ❌ Not working at this time</summary>

@@ -10,8 +10,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: debug-apk-${{ github.ref }}
-  cancel-in-progress: true
+  # Shared with the release APK build: Gradle + CMake need several GB, so
+  # Android jobs must never run side by side on the self-hosted runner.
+  group: android-gradle
+  cancel-in-progress: false
 
 jobs:
   build:

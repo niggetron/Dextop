@@ -175,8 +175,10 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
         private const val NOTIFICATION_LAUNCH_WINDOW_MS = 3_000L
         /** How soon after a car tap a swipe still starts at the tapped point. */
         private const val CAR_TAP_DRAG_MS = 1_500L
-        /** HyperOS / MIUI device profile, see DeviceProfiles. */
+        /** HyperOS / MIUI device profiles, see DeviceProfiles. */
         private const val XIAOMI_PROFILE = "xiaomi_hyperos"
+        private const val XIAOMI_TABLET_PROFILE = "xiaomi_redmi_pad_pro_5g"
+        private val XIAOMI_PROFILE_IDS = setOf(XIAOMI_PROFILE, XIAOMI_TABLET_PROFILE)
         /** Scales a screen of the extended desktop can take (percent; 100 is the recommended size). */
         private val EXTENDED_SCALES = listOf(75, 100, 125, 150, 175, 200)
         /** Without new scroll deltas for this long, a car swipe is treated as lifted. */
@@ -1060,6 +1062,13 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
             DesktopEnvironmentRegistry.current()
         }
     }
+    /** True for every Xiaomi/HyperOS profile, including the narrow tablet rule. */
+    private val isXiaomiProfile: Boolean
+        get() = desktopEnvironment.id in XIAOMI_PROFILE_IDS
+
+    /** Defaults keep the Android 16 compatibility fixes on. */
+    private val xiaomiFlags by lazy { XiaomiFeatureFlags(this) }
+
     private val privilegedAccess by lazy { PrivilegedAccess(logTag) }
     private val desktopModeConfigurator by lazy {
         DesktopModeConfigurator(this, contentResolver, privilegedAccess, desktopEnvironment, sessionJournal)
@@ -4658,7 +4667,7 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
                 virtualMouseDescriptor = device.descriptor
                 virtualPointerDisplayId = display.displayId
                 virtualPointerAssociationPending = false
-                if (desktopEnvironment.id == XIAOMI_PROFILE && profile == "touchpad") {
+                if (isXiaomiProfile && profile == "touchpad") {
                     val x = device.getMotionRange(MotionEvent.AXIS_X, InputDevice.SOURCE_MOUSE)
                     val y = device.getMotionRange(MotionEvent.AXIS_Y, InputDevice.SOURCE_MOUSE)
                     val matches = x != null && y != null &&
@@ -6628,6 +6637,23 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
         refreshLaptopModifierKeys()
     }
 
+    /** A `false` from injectInputEvent is a normal refusal, not an invariant violation. */
+    private var lastInputRejectLogMs = 0L
+    private fun sendInput(event: android.view.InputEvent, displayId: Int): Boolean {
+        val accepted = inputDispatcher.send(event, displayId)
+        if (!accepted) {
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastInputRejectLogMs > 1_000L) {
+                lastInputRejectLogMs = now
+                OperationLog.w(
+                    this, "Input",
+                    "injectInputEvent rejected display=$displayId event=${event.javaClass.simpleName}"
+                )
+            }
+        }
+        return accepted
+    }
+
     private fun injectTargetedBack() {
         // Binder/input dispatch can block on some One UI builds. Never make a
         // key animation or the rest of the overlay wait for that IPC.
@@ -6643,8 +6669,8 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
             val down = KeyEvent(now, now, KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BACK, 0)
             val up = KeyEvent(now, SystemClock.uptimeMillis(), KeyEvent.ACTION_UP, KeyEvent.KEYCODE_BACK, 0)
             runCatching {
-                check(inputDispatcher.send(down, targetDisplayId))
-                check(inputDispatcher.send(up, targetDisplayId))
+                sendInput(down, targetDisplayId)
+                sendInput(up, targetDisplayId)
             }.onFailure { Log.e(logTag, "BlackBerry back injection failed", it) }
         }
     }
@@ -11166,7 +11192,7 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
         return runCatching {
             val event = MotionEvent.obtain(source)
             event.offsetLocation(cursorX - event.x, cursorY - event.y)
-            check(inputDispatcher.send(event, targetDisplayId))
+            sendInput(event, targetDisplayId)
             event.recycle()
             true
         }.onFailure { Log.e(logTag, "captured mouse forwarding failed", it) }
@@ -11578,7 +11604,7 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
                     MotionEvent::class.java.getMethod("setActionButton", Int::class.javaPrimitiveType)
                         .invoke(event, MotionEvent.BUTTON_SECONDARY)
                 }
-                check(inputDispatcher.send(event, targetDisplayId))
+                sendInput(event, targetDisplayId)
                 event.recycle()
             }
             cursorView?.pulse()
@@ -11753,7 +11779,7 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
                 setScale(region.width() / view.width, region.height() / view.height)
                 postTranslate(region.left, region.top)
             })
-            check(inputDispatcher.send(event, targetDisplayId))
+            sendInput(event, targetDisplayId)
 
             cursorX = event.x.coerceIn(0f, targetWidth - 1f)
             cursorY = event.y.coerceIn(0f, targetHeight - 1f)
@@ -11794,7 +11820,7 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
                 InputDevice.SOURCE_TOUCHSCREEN,
                 0
             )
-            check(inputDispatcher.send(event, targetDisplayId))
+            sendInput(event, targetDisplayId)
             event.recycle()
         }.onFailure { Log.e(logTag, "input injection failed", it) }
     }
@@ -11893,18 +11919,22 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
                 )
             }
             try {
-                check(inputDispatcher.send(event, targetDisplayId)) {
-                    moe.n4tsu.dextop.InlineStrings.format(moe.n4tsu.dextop.localText("uiInputManagerRejectedMultiTouchEventAction0"), event.actionMasked)
-                }
-                injectedDirectTouchActive = when (event.actionMasked) {
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> false
-                    else -> true
-                }
-                lastInjectedDirectTouch?.recycle()
-                lastInjectedDirectTouch = if (injectedDirectTouchActive) MotionEvent.obtain(event) else null
-                if (!injectedDirectTouchActive) {
-                    directInjectionDownTime = 0L
-                    directSourceDownTime = 0L
+                if (!sendInput(event, targetDisplayId)) {
+                    OperationLog.w(
+                        this, "Input",
+                        "multi-touch event rejected action=${event.actionMasked} display=$targetDisplayId"
+                    )
+                } else {
+                    injectedDirectTouchActive = when (event.actionMasked) {
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> false
+                        else -> true
+                    }
+                    lastInjectedDirectTouch?.recycle()
+                    lastInjectedDirectTouch = if (injectedDirectTouchActive) MotionEvent.obtain(event) else null
+                    if (!injectedDirectTouchActive) {
+                        directInjectionDownTime = 0L
+                        directSourceDownTime = 0L
+                    }
                 }
             } finally {
                 event.recycle()
@@ -12117,7 +12147,8 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
     }
 
     private fun useDirectPlasmaDisplay(): Boolean =
-        desktopEnvironment.directPlasmaDisplay && !autoOnlySession && !laptopModeActive &&
+        desktopEnvironment.directPlasmaDisplay && !autoOnlySession &&
+            (!laptopModeActive || (isXiaomiProfile && xiaomiFlags.laptopDirectDisplay)) &&
             moe.n4tsu.dextop.plasma.WindowManagerSelection.current(this) in setOf(
                 moe.n4tsu.dextop.plasma.WindowManagerSelection.DEXTOP_PLASMA_V2,
                 moe.n4tsu.dextop.plasma.WindowManagerSelection.DEXTOP_BOOK)
@@ -12148,7 +12179,12 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
                 density,
                 showSystemDecorations,
                 configureBeforePublish = { displayId ->
-                    if (desktopEnvironment.id == XIAOMI_PROFILE) applyXiaomiDesktopDensity(displayId, density)
+                    if (isXiaomiProfile) {
+                        if (xiaomiFlags.pinMetrics) applyXiaomiDesktopDensity(displayId, density)
+                        if (xiaomiFlags.forceFreeform) {
+                            desktopModeConfigurator.configureDisplay(displayId, forceFreeform = true)
+                        }
+                    }
                 },
                 publicDisplay = true,
                 name = "Dextop Desktop",
@@ -12449,7 +12485,7 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
             }
             requestImeRegionProbe("display_attached", force = true)
             clearInheritedDisplayOverrides(targetDisplayId)
-            if (desktopEnvironment.id == XIAOMI_PROFILE) applyXiaomiDesktopDensity(targetDisplayId, density)
+            if (isXiaomiProfile && xiaomiFlags.pinMetrics) applyXiaomiDesktopDensity(targetDisplayId, density)
             configureDisplay()
             if (!autoOnlySession) {
                 val strategyOverride = configuredMirrorStrategyOverride()
@@ -12597,6 +12633,41 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
         }
     }
 
+    /** Resolves a hidden IWindowManager metric method by name and arity; never throws. */
+    private fun applyForcedMetric(method: String, vararg args: Any?): Boolean = runCatching {
+        val service = systemService("window", "android.view.IWindowManager")
+        val resolved = Class.forName("android.view.IWindowManager").methods.firstOrNull { m ->
+            m.name == method && m.parameterTypes.size == args.size
+        } ?: error("$method overload with ${args.size} args not found")
+        resolved.invoke(service, *args)
+        OperationLog.i(this, "XiaomiMetrics", "$method applied args=${args.toList()}")
+        true
+    }.getOrElse { error ->
+        OperationLog.w(this, "XiaomiMetrics", "$method unavailable/rejected args=${args.toList()}", error)
+        false
+    }
+
+    private fun safeUserId(): Int = runCatching {
+        android.os.UserHandle::class.java.getMethod("myUserId").invoke(null) as Int
+    }.getOrElse {
+        OperationLog.w(this, "XiaomiMetrics", "UserHandle.myUserId unavailable", it)
+        0
+    }
+
+    private fun verifyDisplayMetrics(displayId: Int, requested: String) {
+        val display = runCatching {
+            getSystemService(DisplayManager::class.java)?.getDisplay(displayId)
+        }.getOrNull() ?: return
+        val metrics = android.util.DisplayMetrics()
+        @Suppress("DEPRECATION")
+        val real = runCatching { display.getRealMetrics(metrics); metrics }.getOrNull()
+        OperationLog.i(
+            this, "XiaomiMetrics",
+            "verify display=$displayId requested=$requested " +
+                "real=${real?.widthPixels}x${real?.heightPixels}/${real?.densityDpi}"
+        )
+    }
+
     /**
      * Samsung persists forced metrics by the overlay unique id (overlay:1),
      * not by its newly allocated display id. Without clearing them, a newly
@@ -12604,45 +12675,25 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
      * This is used only for a new overlay; live fold resizing keeps its override.
      */
     private fun clearInheritedDisplayOverrides(displayId: Int) {
-        val service = systemService("window", "android.view.IWindowManager")
-        val type = Class.forName("android.view.IWindowManager")
-        val userId = android.os.UserHandle::class.java
-            .getMethod("myUserId").invoke(null) as Int
-        runCatching {
-            type.getMethod("clearForcedDisplaySize", Int::class.javaPrimitiveType)
-                .invoke(service, displayId)
-        }.onFailure { Log.w(logTag, "inherited display size clear failed display=$displayId", it) }
-        runCatching {
-            type.getMethod(
-                "clearForcedDisplayDensityForUser",
-                Int::class.javaPrimitiveType,
-                Int::class.javaPrimitiveType
-            ).invoke(service, displayId, userId)
-        }.onFailure { Log.w(logTag, "inherited display density clear failed display=$displayId", it) }
+        val userId = safeUserId()
+        applyForcedMetric("clearForcedDisplaySize", displayId)
+        applyForcedMetric("clearForcedDisplayDensityForUser", displayId, userId)
         // HyperOS keeps reporting the phone's size and density for a new virtual
         // display after the clear, so the desktop draws a shrunken portrait phone
         // layout. Setting the display's own metrics explicitly does stick.
-        if (desktopEnvironment.id == XIAOMI_PROFILE && displayId == targetDisplayId && targetWidth > 0 && targetHeight > 0) {
-            runCatching {
-                type.getMethod("setForcedDisplaySize", Int::class.javaPrimitiveType,
-                    Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
-                    .invoke(service, displayId, targetWidth, targetHeight)
-                type.getMethod("setForcedDisplayDensityForUser", Int::class.javaPrimitiveType,
-                    Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
-                    .invoke(service, displayId, density, userId)
-            }.onFailure { Log.w(logTag, "Xiaomi display metrics pin failed display=$displayId", it) }
+        if (isXiaomiProfile && xiaomiFlags.pinMetrics && displayId == targetDisplayId &&
+            targetWidth > 0 && targetHeight > 0
+        ) {
+            applyForcedMetric("setForcedDisplaySize", displayId, targetWidth, targetHeight)
+            applyForcedMetric("setForcedDisplayDensityForUser", displayId, density, userId)
+            verifyDisplayMetrics(displayId, "size=${targetWidth}x$targetHeight density=$density")
         }
         OperationLog.i(this, "DisplayBackend", "cleared inherited metrics display=$displayId")
     }
 
     private fun applyXiaomiDesktopDensity(displayId: Int, dpi: Int) {
-        val service = systemService("window", "android.view.IWindowManager")
-        val userId = android.os.UserHandle::class.java.getMethod("myUserId").invoke(null) as Int
-        Class.forName("android.view.IWindowManager").getMethod(
-            "setForcedDisplayDensityForUser", Int::class.javaPrimitiveType,
-            Int::class.javaPrimitiveType, Int::class.javaPrimitiveType,
-        ).invoke(service, displayId, dpi, userId)
-        Log.i(logTag, "Xiaomi desktop density applied display=$displayId dpi=$dpi")
+        applyForcedMetric("setForcedDisplayDensityForUser", displayId, dpi, safeUserId())
+        verifyDisplayMetrics(displayId, "density=$dpi")
     }
 
     private fun configureDisplay(skipWindowing: Boolean = false) {
@@ -12652,7 +12703,12 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
         // half-turn is then applied independently for that orientation.
         val rotation = displayRotationFor()
         if (!skipWindowing) {
-            desktopModeConfigurator.configureDisplay(targetDisplayId, forceFreeformSession)
+            // HyperOS has no platform desktop stack, so forcing freeform is the
+            // only way apps can be launched onto the virtual display on API 36.
+            desktopModeConfigurator.configureDisplay(
+                targetDisplayId,
+                forceFreeformSession || (isXiaomiProfile && xiaomiFlags.forceFreeform)
+            )
         }
         runCatching {
             type.getMethod(
@@ -13252,7 +13308,7 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
                     Int::class.javaPrimitiveType
                 ).invoke(service, targetDisplayId, next.width, next.height)
             }
-            if (densityChanged || desktopEnvironment.id == XIAOMI_PROFILE) {
+            if (densityChanged || isXiaomiProfile) {
                 type.getMethod(
                     "setForcedDisplayDensityForUser",
                     Int::class.javaPrimitiveType,
@@ -13297,16 +13353,14 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
                 "DisplayBackend",
                 "direct Plasma display resized applied=$updated desktop=${targetWidth}x$targetHeight/$density"
             )
-            if (desktopEnvironment.id == XIAOMI_PROFILE) {
+            if (isXiaomiProfile && xiaomiFlags.pinMetrics) {
                 // HyperOS falls back to the phone's portrait size once the
                 // override is cleared, which shrinks the pointer viewport to a
                 // strip of the desktop. Pin the new size as at creation.
-                type.getMethod("setForcedDisplaySize", Int::class.javaPrimitiveType,
-                    Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
-                    .invoke(service, targetDisplayId, targetWidth, targetHeight)
+                applyForcedMetric("setForcedDisplaySize", targetDisplayId, targetWidth, targetHeight)
+                verifyDisplayMetrics(targetDisplayId, "size=${targetWidth}x$targetHeight")
             } else {
-                type.getMethod("clearForcedDisplaySize", Int::class.javaPrimitiveType)
-                    .invoke(service, targetDisplayId)
+                applyForcedMetric("clearForcedDisplaySize", targetDisplayId)
             }
         }
         if (autoOnlySession && sizeChanged) {
@@ -13368,7 +13422,7 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
             "live resized display=$targetDisplayId to ${next.width}x${next.height}/${next.density}; " +
                     "tasks retained " + displayGeometrySnapshot("live_resize_applied")
         )
-        if (desktopEnvironment.id == XIAOMI_PROFILE && sizeChanged &&
+        if (isXiaomiProfile && sizeChanged &&
             virtualPointerRegisteredProfile == "touchpad" && virtualMouseProcessAlive()) {
             virtualMouseReady = false
             privilegedInputClient.setOutputReady(false)

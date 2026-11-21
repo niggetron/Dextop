@@ -180,6 +180,32 @@ internal object DesktopEnvironmentRegistry {
     internal fun vendorFreeform(identity: DeviceIdentity, id: String, stringKey: String) =
         aospFreeform(identity).copy(id = id, displayName = NativeStrings.text(stringKey))
 
+    /**
+     * HyperOS/MIUI has no platform desktop stack comparable to Pixel/AOSP #17.
+     * On SDK 36+ [aospFreeform] deliberately drops the freeform globals and all
+     * per-display windowing configuration; on Xiaomi that makes launching apps
+     * onto Dextop's VirtualDisplay fail. Restore the proven pre-36 compatibility
+     * set and keep windowing configuration enabled. SessionJournal still restores
+     * every displaced value when the session ends.
+     */
+    internal fun xiaomiHyperos(identity: DeviceIdentity): DesktopEnvironment {
+        val base = vendorFreeform(identity, "xiaomi_hyperos", "nativeHyperosMiuiDesktop")
+        return base.copy(
+            directPlasmaDisplay = true,
+            untrustedMirrorDisplay = true,
+            fullscreenApplicationDisplays = true,
+            passivePlasmaShellFocus = true,
+            defaultWindowManager = "dextop_book",
+            configureFreeformWindowing = true,
+            temporaryGlobalSettings = linkedMapOf(
+                "force_resizable_activities" to "1",
+                "enable_freeform_support" to "1",
+                "force_desktop_mode_on_external_displays" to "1"
+            ),
+            windowingStrategies = listOf("cmd_window", "wm", "activity_task_manager")
+        )
+    }
+
     /** Pre-Android-16 Pixel/AOSP profile retained for firmware compatibility. */
     internal fun legacyPixelAosp(identity: DeviceIdentity): DesktopEnvironment = DesktopEnvironment(
         "pixel_aosp_compat", NativeStrings.text("nativePixelAndroidDesktop"),

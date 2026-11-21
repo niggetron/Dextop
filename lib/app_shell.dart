@@ -241,6 +241,28 @@ class NativeBridge {
       channel.invokeMethod('clearDiagnosticLog');
   Future<void> shareDiagnosticReport() =>
       channel.invokeMethod('shareDiagnosticReport');
+
+  /// Saves a sanitized diagnostics ZIP through the system file picker (SAF).
+  Future<void> exportDiagnosticZip({
+    bool includeSystemSettings = false,
+    bool includeProcDumps = false,
+    bool includeFullSessionLog = false,
+  }) => channel.invokeMethod('exportDiagnosticZip', <String, Object?>{
+    'includeSystemSettings': includeSystemSettings,
+    'includeProcDumps': includeProcDumps,
+    'includeFullSessionLog': includeFullSessionLog,
+  });
+
+  /// Shares the same ZIP through an app-provided content URI.
+  Future<void> shareDiagnosticZip({
+    bool includeSystemSettings = false,
+    bool includeProcDumps = false,
+    bool includeFullSessionLog = false,
+  }) => channel.invokeMethod('shareDiagnosticZip', <String, Object?>{
+    'includeSystemSettings': includeSystemSettings,
+    'includeProcDumps': includeProcDumps,
+    'includeFullSessionLog': includeFullSessionLog,
+  });
   Future<Map<String, dynamic>> samsungDesktopSettings() async =>
       await channel.invokeMapMethod<String, dynamic>(
         'samsungDesktopSettings',

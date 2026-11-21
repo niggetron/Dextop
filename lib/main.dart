@@ -13,6 +13,7 @@ import 'package:free_dextop/expressive/dextop_widgets.dart';
 import 'package:free_dextop/l10n/app_localizations.dart';
 import 'package:free_dextop/l10n/current_localizations.dart';
 import 'package:free_dextop/analytics_service.dart';
+import 'package:free_dextop/dextop_logger.dart';
 import 'package:free_dextop/native_display_events.dart';
 import 'package:free_dextop/features_page.dart';
 import 'package:free_dextop/linux_page.dart';
@@ -47,6 +48,7 @@ part 'plasma_settings.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  DextopLogger.install();
   // DPI and pointer acceleration were removed from the virtual-mouse
   // implementation. Clear values from older installations before any screen
   // or service can read them, including users who never open Mouse settings.

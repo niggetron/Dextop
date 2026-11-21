@@ -42,7 +42,7 @@
         android:label="@string/app_name"
         android:allowBackup="false"
         android:resizeableActivity="true"
-        android:name="${applicationName}"
+        android:name="moe.n4tsu.dextop.DextopApplication"
         android:icon="@mipmap/ic_launcher">
         <service android:name=".linux.LinuxRuntimeService" android:exported="false"
             android:process=":linux_runtime"
@@ -79,6 +79,16 @@
             android:authorities="${applicationId}.embedded_privilege"
             android:enabled="true"
             android:exported="true" />
+        <!-- Shares the diagnostics ZIP without any public-storage permission. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
         <receiver
             android:name="moe.n4tsu.dextop.privilege.EmbeddedPairingReceiver"
             android:exported="false" />

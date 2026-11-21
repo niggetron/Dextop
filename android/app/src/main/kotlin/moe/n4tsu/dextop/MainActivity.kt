@@ -2,6 +2,7 @@ package moe.n4tsu.dextop
 
 import android.Manifest
 import android.content.Intent
+import android.content.ClipData
 import android.content.ComponentName
 import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
@@ -21,6 +22,14 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.android.FlutterView
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.ActivityResultRegistry
+import androidx.activity.result.contract.ActivityResultContract
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.ActivityOptionsCompat
+import androidx.core.content.FileProvider
+import java.io.File
+import java.io.FileOutputStream
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -115,6 +124,44 @@ open class MainActivity : FlutterActivity() {
         )
     }
     private var flutterChannel: MethodChannel? = null
+
+    // FlutterActivity extends android.app.Activity, so we own an ActivityResultRegistry
+    // rather than calling registerForActivityResult() from ComponentActivity.
+    private val exportRegistry = object : ActivityResultRegistry() {
+        override fun <I, O> onLaunch(
+            requestCode: Int,
+            contract: ActivityResultContract<I, O>,
+            input: I,
+            options: ActivityOptionsCompat?,
+        ) {
+            startActivityForResult(
+                contract.createIntent(this@MainActivity, input),
+                requestCode,
+                options?.toBundle(),
+            )
+        }
+    }
+    private var pendingZipResult: MethodChannel.Result? = null
+    private var pendingZipOptions = DiagnosticExport.Options()
+    private val exportZipLauncher: ActivityResultLauncher<Intent> =
+        exportRegistry.register("dextop_export_zip", ActivityResultContracts.StartActivityForResult()) { activityResult ->
+            val result = pendingZipResult ?: return@register
+            pendingZipResult = null
+            val uri = activityResult.data?.data
+            if (activityResult.resultCode != RESULT_OK || uri == null) {
+                result.error("EXPORT_CANCELLED", "Diagnostic export was cancelled", null)
+                return@register
+            }
+            Thread {
+                runCatching {
+                    contentResolver.openOutputStream(uri)?.use { stream ->
+                        DiagnosticExport.write(this@MainActivity, stream, pendingZipOptions)
+                    } ?: error("The selected document could not be opened for writing")
+                }.onSuccess { runOnUiThread { result.success(null) } }
+                    .onFailure { error -> runOnUiThread { result.error("EXPORT_FAILED", error.message, null) } }
+            }.start()
+        }
+
     private var linuxChannel: moe.n4tsu.dextop.linux.LinuxChannel? = null
     private var pendingWirelessDebuggingResult: MethodChannel.Result? = null
     private var pendingNotificationPermissionResult: MethodChannel.Result? = null
@@ -282,6 +329,11 @@ open class MainActivity : FlutterActivity() {
             // no lifecycle callback, so forward the action to Flutter directly.
             runOnUiThread { flutterChannel?.invokeMethod("shortcutAction", null) }
         }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (exportRegistry.dispatchResult(requestCode, resultCode, data)) return
+        super.onActivityResult(requestCode, resultCode, data)
     }
 
     override fun onDestroy() {
@@ -713,6 +765,61 @@ open class MainActivity : FlutterActivity() {
                             putExtra(Intent.EXTRA_TEXT, report)
                         }, moe.n4tsu.dextop.localText("uiShareDiagnosticReport")))
                         result.success(null)
+                    }
+                }.start()
+                "logEvent" -> {
+                    val level = call.argument<String>("level") ?: "i"
+                    val tag = call.argument<String>("tag") ?: "Dart"
+                    val message = call.argument<String>("message") ?: ""
+                    @Suppress("UNCHECKED_CAST")
+                    val fields = (call.argument<Map<*, *>>("fields") ?: emptyMap<Any?, Any?>())
+                        .mapNotNull { (key, value) -> (key as? String)?.to(value) }
+                    DextopLog.log(level, tag, message, fields, call.argument<String>("stack"), this)
+                    result.success(null)
+                }
+                "exportDiagnosticZip" -> {
+                    pendingZipOptions = DiagnosticExport.Options(
+                        includeSystemSettings = call.argument<Boolean>("includeSystemSettings") == true,
+                        includeProcDumps = call.argument<Boolean>("includeProcDumps") == true,
+                        includeFullSessionLog = call.argument<Boolean>("includeFullSessionLog") == true,
+                    )
+                    pendingZipResult = result
+                    runCatching {
+                        exportZipLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                            addCategory(Intent.CATEGORY_OPENABLE)
+                            type = DiagnosticExport.MIME_ZIP
+                            putExtra(Intent.EXTRA_TITLE, DiagnosticExport.fileName(this@MainActivity))
+                            // No EXTRA_INITIAL_URI: HyperOS DocumentsUI may ignore it.
+                        })
+                    }.onFailure { error ->
+                        pendingZipResult = null
+                        result.error("EXPORT_UNAVAILABLE", error.message, null)
+                    }
+                }
+                "shareDiagnosticZip" -> Thread {
+                    val options = DiagnosticExport.Options(
+                        includeSystemSettings = call.argument<Boolean>("includeSystemSettings") == true,
+                        includeProcDumps = call.argument<Boolean>("includeProcDumps") == true,
+                        includeFullSessionLog = call.argument<Boolean>("includeFullSessionLog") == true,
+                    )
+                    runCatching {
+                        val dir = File(cacheDir, "diag").apply { mkdirs() }
+                        val file = File(dir, DiagnosticExport.fileName(this@MainActivity))
+                        FileOutputStream(file).use { DiagnosticExport.write(this@MainActivity, it, options) }
+                        // Authority follows the per-build applicationId suffix and both flavors.
+                        val uri = FileProvider.getUriForFile(this@MainActivity, "${packageName}.fileprovider", file)
+                        runOnUiThread {
+                            startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                                type = DiagnosticExport.MIME_ZIP
+                                putExtra(Intent.EXTRA_STREAM, uri)
+                                putExtra(Intent.EXTRA_SUBJECT, moe.n4tsu.dextop.localText("uiDextopDiagnosticReport"))
+                                clipData = ClipData.newRawUri("diagnostics", uri)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }, moe.n4tsu.dextop.localText("uiShareDiagnosticReport")))
+                            result.success(null)
+                        }
+                    }.onFailure { error ->
+                        runOnUiThread { result.error("ZIP_SHARE_FAILED", error.message, null) }
                     }
                 }.start()
                 "performanceHud" -> {

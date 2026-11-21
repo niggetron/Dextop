@@ -38,8 +38,26 @@ val releaseSigningReady = listOf(
     releaseKeystore, releaseAlias, releaseStorePassword, releaseKeyPassword
 ).all { !it.isNullOrBlank() }
 
+// CI-only build metadata. The GitHub Actions release job sets these to produce a
+// uniquely-named, per-run suffixed APK without any signing material in the repo.
+// Local/release builds that do not set them keep the values from pubspec.yaml.
+val buildSuffix = System.getenv("DEXTOP_BUILD_SUFFIX")?.takeIf { it.isNotBlank() }
+val versionNameOverride = System.getenv("DEXTOP_VERSION_NAME")?.takeIf { it.isNotBlank() }
+val versionCodeOverride = System.getenv("DEXTOP_VERSION_CODE")?.toIntOrNull()
+require(buildSuffix == null || buildSuffix.matches(Regex("[A-Za-z][A-Za-z0-9]{0,15}"))) {
+    "DEXTOP_BUILD_SUFFIX must be one valid Java package segment (letter first, <=16 chars)"
+}
+require(versionCodeOverride == null || versionCodeOverride > 0) {
+    "DEXTOP_VERSION_CODE must be a positive integer"
+}
+
 android {
     namespace = "moe.n4tsu.dextop"
+    // HiddenApiBypass is intentionally declared in the APK's dependencies.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = false
+    }
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -57,8 +75,10 @@ android {
         // Desktop windows and task descriptions require Android 13 or later.
         minSdk = 33
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        versionCode = versionCodeOverride ?: flutter.versionCode
+        versionName = versionNameOverride ?: flutter.versionName
+        // Only arm64 is shipped for this project; cut CI time and avoid stray libs.
+        ndk { abiFilters += "arm64-v8a" }
         buildConfigField("String", "CAST_RECEIVER_APP_ID", "\"$castReceiverAppId\"")
         buildConfigField("boolean", "EMBEDDED_STELLAR", "true")
 
@@ -75,6 +95,9 @@ android {
             dimension = "distribution"
             buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"github\"")
             buildConfigField("boolean", "EMBEDDED_STELLAR", "true")
+            // CI sets a unique suffix per release build. The Play flavor keeps a
+            // stable applicationId so Play updates are never broken.
+            if (buildSuffix != null) applicationIdSuffix = ".$buildSuffix"
         }
         create("play") {
             dimension = "distribution"
@@ -167,7 +190,9 @@ tasks.configureEach {
 }
 
 androidComponents {
-    onVariants(selector().withBuildType("release")) { variant ->
+    // Apply the arm64-only library filter to every github variant, including the
+    // debug-signed APK produced by the release workflow.
+    onVariants(selector().withFlavor("distribution" to "github")) { variant ->
         variant.packaging.jniLibs.excludes.addAll(
             listOf(
                 "lib/armeabi-v7a/**",
@@ -189,7 +214,9 @@ dependencies {
     implementation("androidx.media3:media3-muxer:1.10.1")
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
-    implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.1")
+    // 6.2 is the first release that covers the Android 16/17 hidden-API changes;
+    // 6.1 predates API 36 and can silently fail to exempt newly restricted APIs.
+    implementation("org.lsposed.hiddenapibypass:hiddenapibypass:6.2")
     // Decompresses Linux container root filesystems (rootfs.tar.xz).
     implementation("org.tukaani:xz:1.10")
     implementation("org.apache.commons:commons-compress:1.28.0")

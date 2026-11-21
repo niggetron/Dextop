@@ -1,5 +1,6 @@
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:free_dextop/dextop_logger.dart';
 
 abstract final class AppAnalytics {
   static FirebaseAnalytics? _analytics;
@@ -9,7 +10,10 @@ abstract final class AppAnalytics {
       await Firebase.initializeApp();
       _analytics = FirebaseAnalytics.instance;
       await _analytics?.setAnalyticsCollectionEnabled(true);
-    } catch (_) {}
+    } catch (error, stack) {
+      // Firebase is optional on GMS-less HyperOS builds; keep the local log.
+      DextopLogger.error('Analytics', 'initialize failed: $error', stack: stack);
+    }
   }
 
   static Future<void> screen(String name) async {

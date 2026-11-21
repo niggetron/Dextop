@@ -331,7 +331,7 @@ Pixel support is limited and incomplete. No exact Pixel model and firmware combi
 <details>
 <summary><strong>Xiaomi</strong></summary>
 
-> The desktop environment is disabled on Xiaomi devices running HyperOS or later. MIUI and HyperOS are not supported.
+> HyperOS support is experimental in this fork. The `xiaomi_hyperos` device profile is active; virtual-display mirroring, session start and touch gestures work on tested HyperOS 3.0 / Android 16 firmware, while freeform app launching and multi-touch pinch/scroll remain firmware-dependent. On Android 16 the profile restores freeform globals and per-display windowing configuration that the generic SDK 36 branch would otherwise disable.
 
 <br>
 

@@ -1,0 +1,169 @@
+name: Release APK
+
+# Reusable build + publish job for GitHub Releases.
+#
+# WARNING: this APK is DEBUG-SIGNED with Android's default debug key. No keystore
+# or DEXTOP_STORE/DEXTOP_KEY values are read or set anywhere in this workflow.
+# The github flavor receives a UNIQUE applicationId suffix per run so consecutive
+# release assets install side by side. Consequences: Android Auto companion trust
+# and self-update identity do not apply to these assets (documented in README).
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: Existing GitHub Release tag to build from and upload to (e.g. v2.1.0)
+        required: true
+        type: string
+      version_name:
+        description: Version name override; blank = tag with leading "v" removed
+        required: false
+        type: string
+        default: ""
+      version_code:
+        description: Version code override; blank = build number in pubspec.yaml at the tag
+        required: false
+        type: string
+        default: ""
+      suffix:
+        description: applicationId suffix override; blank = unique value derived from this run
+        required: false
+        type: string
+        default: ""
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing GitHub Release tag to build from and upload to
+        required: true
+        type: string
+      version_name:
+        description: Version name override (blank = tag without leading v)
+        required: false
+        type: string
+        default: ""
+      version_code:
+        description: Version code override (blank = pubspec build number + 1)
+        required: false
+        type: string
+        default: ""
+      suffix:
+        description: applicationId suffix override (blank = unique per run)
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-gradle
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build arm64 debug APK and publish
+    runs-on: [self-hosted, android]
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: 3.47.7
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Compute build metadata
+        env:
+          INPUT_VERSION_NAME: ${{ inputs.version_name }}
+          INPUT_VERSION_CODE: ${{ inputs.version_code }}
+          INPUT_SUFFIX: ${{ inputs.suffix }}
+          TAG: ${{ inputs.tag }}
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          version_name="$INPUT_VERSION_NAME"
+          [ -n "$version_name" ] || version_name="${TAG#v}"
+          version_code="$INPUT_VERSION_CODE"
+          if [ -z "$version_code" ]; then
+            base=$(awk -F'+' '/^version:/{print $2; exit}' pubspec.yaml)
+            if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+              version_code=$((base + 1))
+            else
+              version_code="$base"
+            fi
+          fi
+          if ! printf '%s' "$version_code" | grep -Eq '^[0-9]+$'; then
+            echo "::error::version code '$version_code' is not an integer"
+            exit 1
+          fi
+          suffix="$INPUT_SUFFIX"
+          if [ -z "$suffix" ]; then
+            # Letter-first, <=16 chars, unique per run + attempt.
+            suffix="r$(printf '%s-%s' "$RUN_ID" "$RUN_ATTEMPT" | sha256sum | cut -c1-12)"
+          fi
+          {
+            echo "DEXTOP_BUILD_SUFFIX=$suffix"
+            echo "DEXTOP_VERSION_NAME=$version_name"
+            echo "DEXTOP_VERSION_CODE=$version_code"
+            echo "VERSION_NAME=$version_name"
+            echo "APK_PATH=build/app/outputs/flutter-apk/Dextop-${version_name}-arm64.apk"
+          } >> "$GITHUB_ENV"
+          echo "APK package: moe.n4tsu.dextop.$suffix  version: $version_name ($version_code)"
+
+      - name: Generate release notes
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          previous=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)
+          python3 tool/generate_release_notes.py "$previous" "$TAG" > release-notes.md
+          sed -n '1,40p' release-notes.md
+
+      - name: Build arm64 debug APK
+        run: |
+          # A checked-in .env would make Gradle load signing material; refuse to build.
+          if [ -f .env ]; then
+            echo "::error::.env must not exist in CI"
+            exit 1
+          fi
+          flutter build apk --flavor github --debug --target-platform android-arm64 \
+            --dart-define=DISTRIBUTION_CHANNEL=github
+          cp build/app/outputs/flutter-apk/app-github-debug.apk "$APK_PATH"
+
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dextop-arm64-debug-${{ inputs.tag }}
+          path: build/app/outputs/flutter-apk/Dextop-*.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish APK and notes to the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          gh release view "$TAG" --repo "$REPOSITORY" >/dev/null || {
+            echo "::error::No GitHub Release for tag $TAG; publish the release first"
+            exit 1
+          }
+          gh release upload "$TAG" "$APK_PATH" --repo "$REPOSITORY" --clobber
+          gh release edit "$TAG" --repo "$REPOSITORY" --notes-file release-notes.md

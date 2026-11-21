@@ -22,10 +22,14 @@ class PrivilegedInputService : IPrivilegedInputService.Stub() {
 
         init {
             val embeddedLibrary = System.getProperty("moe.n4tsu.dextop.embedded_input_library")
-            if (embeddedLibrary.isNullOrBlank()) {
-                System.loadLibrary("dextop_input")
-            } else {
-                System.load(embeddedLibrary)
+            runCatching {
+                if (embeddedLibrary.isNullOrBlank()) {
+                    System.loadLibrary("dextop_input")
+                } else {
+                    System.load(embeddedLibrary)
+                }
+            }.onFailure { error ->
+                Log.e(TAG, "native load failed library=$embeddedLibrary abis=${android.os.Build.SUPPORTED_ABIS.contentToString()}", error)
             }
         }
     }

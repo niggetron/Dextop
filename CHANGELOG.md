@@ -1,5 +1,44 @@
 # Changelog
 
+## Unreleased — Android 16 / Redmi Pad Pro 5G rebuild
+
+### Added
+
+* Structured native logging facade (`DextopLog`) with sanitized, tagged, field-based records.
+* Privacy-filtered rolling log buffer with four rotating segments and drop-oldest semantics.
+* User-triggered diagnostics ZIP export through the system file picker (SAF), with an explicit consent sheet; sensitive sections default to off.
+* Dart/Flutter error capture for both the main UI engine and the overlay engine, written to the same exported log.
+* Xiaomi feature switches with safe defaults: `xiaomi_force_freeform`, `xiaomi_pin_metrics`, `xiaomi_laptop_direct_display`, `xiaomi_tablet_touch_mode`, `xiaomi_topology_layout`.
+* Narrow `xiaomi_redmi_pad_pro_5g` device profile for Android 16 tablets (falls back to the broad HyperOS profile if identity does not match).
+* Reusable `release-apk.yml` workflow that builds an arm64 APK and publishes it to GitHub Releases with deterministic notes.
+
+### Fixed
+
+* SDK 36 HyperOS freeform regression: restored `enable_freeform_support`, `force_resizable_activities` and per-display windowing configuration for Xiaomi/Redmi/POCO devices, which is required to launch apps onto the virtual display.
+* HyperOS display-metric pinning is now non-fatal; a rejected hidden `IWindowManager` call no longer aborts display creation and session start.
+* Normal `injectInputEvent` refusals no longer throw (and no longer leak a `MotionEvent`), improving multi-touch reliability on HyperOS.
+* Hidden-API exemption is now installed for every process at application startup instead of only after the accessibility service connects.
+* Native library load failures now produce a structured log with the attempted path and device ABIs.
+* Potential crash in analytics initialization is logged instead of silently swallowed.
+
+### Removed
+
+* The stale README claim that Xiaomi/HyperOS support is "disabled"; it is documented as experimental/partial instead.
+* Automatic GitHub-generated release notes replaced by deterministic Added/Fixed/Removed/Enhanced/Upgraded sections.
+
+### Enhanced
+
+* `hiddenapibypass` upgraded from 6.1 to 6.2 for Android 16/17 hidden-API coverage.
+* arm64-only native library filtering now applies to debug github builds as well as release builds.
+* Physical mouse/deck-key and high-refresh-rate tuning enabled for the narrow Xiaomi tablet profile.
+* Native crash/tail diagnostics preserved through an in-memory tail that is exported even before the buffered flush.
+
+### Upgraded
+
+* Each release build now receives a unique `applicationId` suffix and an explicit version bump (intentional side-by-side installs; see README).
+* Android/Gradle jobs share a single concurrency group so memory-heavy builds never overlap.
+* Release-please changelog sections remapped to the five-section taxonomy above.
+
 ## [2.0.0-beta.2](https://github.com/NarYuki/Dextop/compare/v2.0.0-beta.1...v2.0.0-beta.2) (2026-11-18)
 
 

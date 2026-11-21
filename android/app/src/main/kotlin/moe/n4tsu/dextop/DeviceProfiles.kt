@@ -63,17 +63,27 @@ internal object DeviceProfiles {
         // metrics avoids these paths. First verified on Xiaomi 14 Ultra
         // (24030PN60G, Android 16) and applied to every Xiaomi, Redmi and POCO
         // device, which share HyperOS / MIUI.
+        // Narrow tablet rule. The codename/fingerprint are best-effort: if they do
+        // not match this device it simply falls through to the broad Xiaomi rule.
+        // DeviceMatch ANDs every non-empty field, so a phone can never match.
+        DesktopEnvironmentRule(
+            "xiaomi_redmi_pad_pro_5g",
+            DeviceMatch(
+                manufacturers = setOf("xiaomi", "redmi"),
+                devices = setOf("duchamp"),
+                fingerprintPrefixes = setOf("redmi/duchamp", "xiaomi/duchamp"),
+                minSdk = 36
+            )
+        ) { identity ->
+            DesktopEnvironmentRegistry.xiaomiHyperos(identity).copy(
+                id = "xiaomi_redmi_pad_pro_5g",
+                maxRateApplicationDisplays = true,
+                pinPhysicalMouseToDesktop = true,
+                directDeckKeyboardToApp = true
+            )
+        },
         DesktopEnvironmentRule("xiaomi_hyperos", DeviceMatch(manufacturers = setOf("xiaomi", "redmi", "poco"))) { identity ->
-            DesktopEnvironmentRegistry.vendorFreeform(identity, "xiaomi_hyperos", "nativeHyperosMiuiDesktop")
-                .copy(
-                    directPlasmaDisplay = true,
-                    untrustedMirrorDisplay = true,
-                    fullscreenApplicationDisplays = true,
-                    // Public: Gboard can draw its candidates and toolbar only on a display it may
-                    // add windows to. System decorations are switched off on each one instead.
-                    passivePlasmaShellFocus = true,
-                    defaultWindowManager = "dextop_book",
-                )
+            DesktopEnvironmentRegistry.xiaomiHyperos(identity)
         },
         vendor("coloros_family", setOf("oppo", "realme", "oneplus"), "nativeColorosDesktop"),
         vendor("vivo_family", setOf("vivo", "iqoo"), "nativeOriginosFuntouchOsDesktop"),

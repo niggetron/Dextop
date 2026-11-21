@@ -6,19 +6,39 @@
   "changelog-sections": [
     {
       "type": "feat",
-      "section": "New features"
+      "section": "Added"
     },
     {
       "type": "fix",
-      "section": "Fixes"
-    },
-    {
-      "type": "perf",
-      "section": "Improvements"
+      "section": "Fixed"
     },
     {
       "type": "revert",
-      "section": "Reverts"
+      "section": "Removed"
+    },
+    {
+      "type": "refactor",
+      "section": "Removed"
+    },
+    {
+      "type": "perf",
+      "section": "Enhanced"
+    },
+    {
+      "type": "build",
+      "section": "Upgraded"
+    },
+    {
+      "type": "deps",
+      "section": "Upgraded"
+    },
+    {
+      "type": "chore",
+      "section": "Upgraded"
+    },
+    {
+      "type": "ci",
+      "section": "Upgraded"
     }
   ],
   "packages": {

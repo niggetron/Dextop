@@ -1,5 +1,6 @@
 package moe.n4tsu.dextop.linux
 
+import android.util.Log
 import android.view.Surface
 import java.io.File
 import java.io.RandomAccessFile
@@ -12,7 +13,11 @@ import java.nio.channels.FileChannel
 internal object LinuxFrameBridge {
     init {
         val library = System.getProperty(LinuxServiceHost.LIBRARY_PROPERTY)
-        if (library != null) System.load(library) else System.loadLibrary("dextop_linux")
+        runCatching {
+            if (library != null) System.load(library) else System.loadLibrary("dextop_linux")
+        }.onFailure { error ->
+            Log.e("DextopLinuxBridge", "native load failed library=$library abis=${android.os.Build.SUPPORTED_ABIS.contentToString()}", error)
+        }
     }
 
     /** [alpha]: the window is 32-bit (ARGB); its transparency is kept. */

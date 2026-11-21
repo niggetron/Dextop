@@ -29,8 +29,12 @@ internal class WaylandCompositor(
 
         init {
             val bridge = System.getProperty(LinuxServiceHost.LIBRARY_PROPERTY)
-            if (bridge != null) System.load(File(File(bridge).parentFile, "libdextop_wayland.so").absolutePath)
-            else System.loadLibrary("dextop_wayland")
+            runCatching {
+                if (bridge != null) System.load(File(File(bridge).parentFile, "libdextop_wayland.so").absolutePath)
+                else System.loadLibrary("dextop_wayland")
+            }.onFailure { error ->
+                Log.e(TAG, "native load failed bridge=$bridge abis=${android.os.Build.SUPPORTED_ABIS.contentToString()}", error)
+            }
         }
 
         @JvmStatic private external fun nativeStart(socketName: String, width: Int, height: Int, callback: Callback): Long

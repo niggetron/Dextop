@@ -18,7 +18,8 @@ import java.util.Locale
 internal class DiagnosticReport(private val context: Context) {
     private fun line(name: String, value: Any?) = "$name: ${value ?: "unknown"}\n"
 
-    fun build(): String {
+    /** Sensitive sections are opt-in so a default export stays safe to share. */
+    fun build(options: DiagnosticExport.Options = DiagnosticExport.Options()): String {
         val identity = DeviceIdentity.current()
         val environment = DesktopEnvironmentRegistry.resolve(identity)
         val diagnostics = DeviceDiagnostics(context).report()
@@ -94,8 +95,13 @@ internal class DiagnosticReport(private val context: Context) {
         sb.append(line("largeHeapClassMb", activity.largeMemoryClass))
         sb.append(line("storageTotalBytes", storage.totalBytes))
         sb.append(line("storageAvailableBytes", storage.availableBytes))
-        readFile("/proc/cpuinfo", 80_000)?.let { sb.append("cpuInfo:\n$it\n") }
-        readFile("/proc/meminfo", 20_000)?.let { sb.append("memInfo:\n$it\n") }
+        if (options.includeProcDumps) {
+            readFile("/proc/cpuinfo", 80_000)?.let { sb.append("cpuInfo:\n$it\n") }
+            readFile("/proc/meminfo", 20_000)?.let { sb.append("memInfo:\n$it\n") }
+        } else {
+            sb.append("cpuInfo: (omitted; enable sensitive export)\n")
+            sb.append("memInfo: (omitted; enable sensitive export)\n")
+        }
         sb.append("\n[DISPLAYS]\n")
         displayManager.displays.forEach { display ->
             val metrics = DisplayMetrics().also { @Suppress("DEPRECATION") display.getRealMetrics(it) }
@@ -112,12 +118,17 @@ internal class DiagnosticReport(private val context: Context) {
         sb.append("\n[SYSTEM FEATURES]\n")
         features.forEach { sb.append("$it\n") }
         sb.append("\n[IMPORTANT SETTINGS]\n")
-        listOf("overlay_display_devices", "enable_freeform_support", "force_resizable_activities",
-            "force_desktop_mode_on_external_displays", "adb_wifi_enabled").forEach {
-            sb.append(line(it, Settings.Global.getString(context.contentResolver, it)))
+        if (options.includeSystemSettings) {
+            listOf("overlay_display_devices", "enable_freeform_support", "force_resizable_activities",
+                "force_desktop_mode_on_external_displays", "adb_wifi_enabled").forEach {
+                sb.append(line(it, Settings.Global.getString(context.contentResolver, it)))
+            }
+        } else {
+            sb.append("(system settings omitted; enable sensitive export)\n")
         }
-        sb.append("\n[LAST COMPLETED DEXTOP SESSION]\n")
-        sb.append(OperationLog.readLastSession(context).ifBlank { "(empty)\n" })
+        sb.append("\n[LAST DEXTOP LOG]\n")
+        sb.append((if (options.includeFullSessionLog) OperationLog.snapshot(context)
+                   else OperationLog.tailSnapshot()).ifBlank { "(empty)\n" })
         return sb.toString()
     }
 

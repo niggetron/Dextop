@@ -519,6 +519,10 @@ class _DiagnosticLogPage extends StatefulWidget {
 class _DiagnosticLogPageState extends State<_DiagnosticLogPage> {
   String report = '';
   bool loading = true;
+  // Sensitive sections are off by default and require explicit consent.
+  bool _includeSystemSettings = false;
+  bool _includeProcDumps = false;
+  bool _includeFullSessionLog = false;
 
   @override
   void initState() {
@@ -543,10 +547,91 @@ class _DiagnosticLogPageState extends State<_DiagnosticLogPage> {
     await load();
   }
 
+  /// Shows exactly what goes into the archive before writing it.
+  Future<void> exportZip({required bool share}) async {
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          left: 24,
+          right: 24,
+          top: 20,
+          bottom: 24 + MediaQuery.of(sheetContext).viewInsets.bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Export diagnostic log',
+                style: Theme.of(sheetContext).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            const Text(
+              'The archive contains app logs, device details and capability '
+              'results. Review what to include before exporting. Sensitive '
+              'values are redacted.',
+            ),
+            CheckboxListTile(
+              value: _includeSystemSettings,
+              onChanged: (value) =>
+                  setState(() => _includeSystemSettings = value ?? false),
+              title: const Text('Include system settings'),
+              subtitle: const Text('Overlay/freeform flags. Off by default.'),
+            ),
+            CheckboxListTile(
+              value: _includeProcDumps,
+              onChanged: (value) =>
+                  setState(() => _includeProcDumps = value ?? false),
+              title: const Text('Include /proc dumps'),
+              subtitle: const Text('Raw CPU and memory details. Off by default.'),
+            ),
+            CheckboxListTile(
+              value: _includeFullSessionLog,
+              onChanged: (value) =>
+                  setState(() => _includeFullSessionLog = value ?? false),
+              title: const Text('Include full session log'),
+              subtitle: const Text('All persisted log segments. Off by default.'),
+            ),
+            const SizedBox(height: 8),
+            FilledButton(
+              onPressed: () => Navigator.of(sheetContext).pop(true),
+              child: const Text('Export'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      if (share) {
+        await widget.bridge.shareDiagnosticZip(
+          includeSystemSettings: _includeSystemSettings,
+          includeProcDumps: _includeProcDumps,
+          includeFullSessionLog: _includeFullSessionLog,
+        );
+      } else {
+        await widget.bridge.exportDiagnosticZip(
+          includeSystemSettings: _includeSystemSettings,
+          includeProcDumps: _includeProcDumps,
+          includeFullSessionLog: _includeFullSessionLog,
+        );
+      }
+    } catch (error) {
+      DextopLogger.warning('DiagnosticExport', 'export failed',
+          {'error': '$error'});
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final actions = <Widget>[
+      M3EIconButton(
+        variant: M3EIconButtonVariant.standard,
+        tooltip: 'Export diagnostic ZIP',
+        onPressed: loading ? null : () => exportZip(share: false),
+        icon: const Icon(M3EIcons.archive_outlined),
+      ),
       M3EIconButton(
         variant: M3EIconButtonVariant.standard,
         tooltip: currentLocalizations().copyDiagnosticLog,
@@ -677,6 +762,7 @@ class _KeepAwakeTileState extends State<_KeepAwakeTile> {
 @pragma('vm:entry-point')
 void overlayMain() {
   WidgetsFlutterBinding.ensureInitialized();
+  DextopLogger.install();
   runApp(const OverlayApp());
 }
 

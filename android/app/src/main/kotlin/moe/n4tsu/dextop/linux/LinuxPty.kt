@@ -1,10 +1,16 @@
 package moe.n4tsu.dextop.linux
 
+import android.util.Log
+
 /** JNI (libdextop_linux.so) for the Linux terminal's pseudo-terminals. */
 internal object LinuxPty {
     init {
         val library = System.getProperty(LinuxServiceHost.LIBRARY_PROPERTY)
-        if (library != null) System.load(library) else System.loadLibrary("dextop_linux")
+        runCatching {
+            if (library != null) System.load(library) else System.loadLibrary("dextop_linux")
+        }.onFailure { error ->
+            Log.e("DextopLinuxPty", "native load failed library=$library abis=${android.os.Build.SUPPORTED_ABIS.contentToString()}", error)
+        }
     }
 
     /** Starts [argv] on a new PTY; returns the master fd (negative errno on failure), its pid in [pidOut]. */

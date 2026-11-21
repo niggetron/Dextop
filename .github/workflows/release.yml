@@ -18,6 +18,9 @@ jobs:
     name: Update the release pull request
     runs-on: self-hosted
     timeout-minutes: 10
+    outputs:
+      released_tag: ${{ steps.release.outputs.tag_name }}
+      released_version: ${{ steps.release.outputs.version }}
 
     steps:
       # Optional: a GitHub App (variable DEXTOP_RELEASE_APP_ID, secret
@@ -91,3 +94,14 @@ jobs:
                   'sha': sha, 'branch': branch})
               print(f'set {wanted}')
           PY
+
+  release-apk:
+    name: Build and publish the arm64 debug APK
+    needs: release-pr
+    # Release Please emits a tag only on the push that merges the release PR.
+    if: needs.release-pr.outputs.released_tag != ''
+    # Debug-signed, arm64-only, suffixed package. No GITHUB_TOKEN event chaining.
+    uses: ./.github/workflows/release-apk.yml
+    with:
+      tag: ${{ needs.release-pr.outputs.released_tag }}
+      version_name: ${{ needs.release-pr.outputs.released_version }}
