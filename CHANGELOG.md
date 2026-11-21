@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased — Android 16 / Redmi Pad Pro 5G rebuild
+## [2.0.0-beta.3](https://github.com/niggetron/Dextop/releases/tag/v2.0.0-beta.3) — Android 16 / Redmi Pad Pro 5G rebuild
 
 ### Added
 
@@ -38,6 +38,10 @@
 * Each release build now receives a unique `applicationId` suffix and an explicit version bump (intentional side-by-side installs; see README).
 * Android/Gradle jobs share a single concurrency group so memory-heavy builds never overlap.
 * Release-please changelog sections remapped to the five-section taxonomy above.
+* All workflows moved from the missing self-hosted runner to GitHub-hosted `ubuntu-latest`, so builds actually run.
+* Added `manual-release.yml` to publish a GitHub Release plus the arm64 APK without requiring the Actions PR-creation permission.
+
+> Note: a timing-sensitive ProOT unit test is ignored on hosted runners because its blocked-stdin write never observes the process timeout there.
 
 ## [2.0.0-beta.2](https://github.com/NarYuki/Dextop/compare/v2.0.0-beta.1...v2.0.0-beta.2) (2026-11-18)
 
