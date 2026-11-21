@@ -16,7 +16,7 @@ concurrency:
 jobs:
   release-pr:
     name: Update the release pull request
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
       released_tag: ${{ steps.release.outputs.tag_name }}

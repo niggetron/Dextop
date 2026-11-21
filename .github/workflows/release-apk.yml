@@ -61,7 +61,7 @@ concurrency:
 jobs:
   build:
     name: Build arm64 debug APK and publish
-    runs-on: [self-hosted, android]
+    runs-on: ubuntu-latest
     timeout-minutes: 45
 
     steps:

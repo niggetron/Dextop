@@ -19,7 +19,7 @@ jobs:
     name: Find what changed
     # The self-hosted runner must never run code from a fork's pull request.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       flutter: ${{ steps.diff.outputs.flutter }}
@@ -55,7 +55,7 @@ jobs:
     name: Flutter
     needs: changes
     if: needs.changes.outputs.flutter == 'true'
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Check out repository
@@ -86,7 +86,7 @@ jobs:
     name: Linux helpers
     needs: changes
     if: needs.changes.outputs.helpers == 'true'
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Check out repository
@@ -101,7 +101,7 @@ jobs:
     name: PR checks
     needs: [changes, flutter, helpers]
     if: always()
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 1
     steps:
       - name: Report the result

@@ -17,7 +17,7 @@ jobs:
   label:
     name: Label size and category
     if: github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 2
     permissions:
       pull-requests: write
