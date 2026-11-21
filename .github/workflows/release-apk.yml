@@ -54,9 +54,8 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: android-gradle
-  cancel-in-progress: false
+# No concurrency group here: callers already serialize on `android-gradle`,
+# and repeating the same group would make the reusable job wait on itself.
 
 jobs:
   build:
