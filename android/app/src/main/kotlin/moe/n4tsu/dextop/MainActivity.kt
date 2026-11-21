@@ -774,6 +774,7 @@ open class MainActivity : FlutterActivity() {
                     @Suppress("UNCHECKED_CAST")
                     val fields = (call.argument<Map<*, *>>("fields") ?: emptyMap<Any?, Any?>())
                         .mapNotNull { (key, value) -> (key as? String)?.to(value) }
+                        .toMap()
                     DextopLog.log(level, tag, message, fields, call.argument<String>("stack"), this)
                     result.success(null)
                 }
