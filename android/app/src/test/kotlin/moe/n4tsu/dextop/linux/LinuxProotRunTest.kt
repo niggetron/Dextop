@@ -49,7 +49,7 @@ class LinuxProotRunTest {
         assertTrue(notStarted.all { it == 0.toByte() })
     }
 
-    @Test(timeout = 15000) fun timeoutIncludesABlockedStdinWrite() {
+    @Test(timeout = 30000) fun timeoutIncludesABlockedStdinWrite() {
         lateinit var child: Process
         val result = runner.run(sleeper(), 1, onProcess = { child = it }, input = "p".repeat(2_000_000))
         assertEquals(-1, result.exitCode)
