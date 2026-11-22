@@ -15,8 +15,10 @@ internal object WatchdogProtocol {
     const val MAX_FRAME = 256 * 1024
     private val LE = ByteOrder.LITTLE_ENDIAN
     private val KEY = Regex("[a-z0-9_]+")
-    private val SAFE_VALUE = Regex("[A-Za-z0-9_.:/+=,@ \\-]+")
-    private val BAD = Regex("[;&|\\\$`\"'(){}<>\n\r]")
+    // The daemon executes argv directly via ProcessBuilder (no shell), so
+    // shell metacharacters are inert; allow overlay specs with ';' and empty values.
+    private val SAFE_VALUE = Regex("[A-Za-z0-9_.:/+=,@;& \\-]*")
+    private val BAD = Regex("[\\\$`\"'(){}<>\n\r]")
 
     data class RestoreAction(
         val kind: String,

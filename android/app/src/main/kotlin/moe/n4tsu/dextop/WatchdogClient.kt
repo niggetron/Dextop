@@ -9,6 +9,13 @@ import org.json.JSONObject
 import java.io.File
 import java.io.IOException
 import java.util.UUID
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 /** App-side controller for the detached rollback watchdog. */
 internal class WatchdogClient(
@@ -22,6 +29,8 @@ internal class WatchdogClient(
     private var connected = false
     private var armSequence = 0L
     private var sessionId = ""
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var heartbeatJob: Job? = null
 
     private fun shellQuote(value: String) = "'" + value.replace("'", "'\\''") + "'"
 
@@ -82,20 +91,36 @@ internal class WatchdogClient(
                 .put("deadlineMs", 15_000L)
                 .put("actions", WatchdogProtocol.actionsToJson(actions)),
         )
+        // Keep the 15 s deadline alive for the whole session; without a
+        // heartbeat a healthy desktop would be rolled back after 15 s.
+        heartbeatJob?.cancel()
+        heartbeatJob = scope.launch {
+            while (isActive) {
+                delay(5_000L)
+                heartbeat()
+            }
+        }
     }
 
     fun heartbeat() {
         if (!connected) return
-        send(WatchdogProtocol.envelope("HEARTBEAT").put("armSeq", armSequence))
+        send(
+            WatchdogProtocol.envelope("HEARTBEAT")
+                .put("nonce", nonce)
+                .put("armSeq", armSequence),
+        )
     }
 
     fun ack(id: String = sessionId) {
-        if (!connected) return
+        heartbeatJob?.cancel()
+        heartbeatJob = null
         send(WatchdogProtocol.envelope("ACK").put("sessionId", id))
         close()
     }
 
     override fun close() {
+        heartbeatJob?.cancel()
+        heartbeatJob = null
         connected = false
         runCatching { socket?.close() }
         socket = null
