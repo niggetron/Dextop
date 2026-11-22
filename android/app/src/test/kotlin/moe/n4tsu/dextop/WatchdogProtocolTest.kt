@@ -40,7 +40,7 @@ class WatchdogProtocolTest {
     @Test
     fun validate_rejects_shell_metacharacters() {
         assertFailsWith<IllegalStateException> {
-            WatchdogProtocol.validate(listOf("settings", "put", "global", "key", "1;reboot"))
+            WatchdogProtocol.validate(listOf("settings", "put", "global", "key", "1`reboot"))
         }
     }
 }
