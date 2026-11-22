@@ -27,8 +27,8 @@ static void deck_direct_layer_unref(struct deck_direct_layer *layer) {
 }
 
 static void deck_direct_frame_destroy(struct deck_direct_frame *frame) {
-    if (frame->source) wl_event_source_remove(frame->source);
-    close(frame->fd);
+    if (frame->source) { wl_event_source_remove(frame->source); frame->source = NULL; }
+    if (frame->fd >= 0) { close(frame->fd); frame->fd = -1; }
     gpu_buffer_unref(frame->buffer, true);
     wl_list_remove(&frame->link);
     free(frame);
@@ -36,23 +36,41 @@ static void deck_direct_frame_destroy(struct deck_direct_frame *frame) {
 
 static int deck_direct_released(int fd, uint32_t mask, void *data) {
     struct deck_direct_frame *frame = data;
-    if (!(mask & WL_EVENT_READABLE)) return 0;
+    /* BUG-04: level-triggered epoll re-dispatches an unreadable fd forever.
+     * HUP/ERROR must be handled as well as READABLE, otherwise a HUP-only
+     * delivery leaves the source registered and spins at 100% CPU. */
+    const uint32_t events = WL_EVENT_READABLE | WL_EVENT_HANGUP | WL_EVENT_ERROR;
+    if (!(mask & events)) return 0;
     if (frame->socket) {
         char byte, ancillary[CMSG_SPACE(sizeof(int))];
         struct iovec iov = {&byte, 1};
         struct msghdr msg = {.msg_iov = &iov, .msg_iovlen = 1,
             .msg_control = ancillary, .msg_controllen = sizeof(ancillary)};
-        if (recvmsg(fd, &msg, MSG_DONTWAIT | MSG_CMSG_CLOEXEC) != 1) return 0;
+        ssize_t n = recvmsg(fd, &msg, MSG_DONTWAIT | MSG_CMSG_CLOEXEC);
+        if (n < 0 && errno == EINTR) return 0;
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK) &&
+            !(mask & (WL_EVENT_HANGUP | WL_EVENT_ERROR))) return 0;
+        /* EOF (0), fatal error, or truncated SCM_RIGHTS: destroy the frame so
+         * the source is removed and the held dmabuf/AHB ref is released. */
+        if (n != 1 || (msg.msg_flags & (MSG_CTRUNC | MSG_TRUNC))) {
+            deck_direct_frame_destroy(frame);
+            return 0;
+        }
         int fence = -1;
         for (struct cmsghdr *c = CMSG_FIRSTHDR(&msg); c; c = CMSG_NXTHDR(&msg, c))
             if (c->cmsg_level == SOL_SOCKET && c->cmsg_type == SCM_RIGHTS &&
                 c->cmsg_len == CMSG_LEN(sizeof(int))) memcpy(&fence, CMSG_DATA(c), sizeof(fence));
         if (fence >= 0) {
             wl_event_source_remove(frame->source);
+            frame->source = NULL;   /* prevent double-remove in destroy */
             close(frame->fd);
             frame->fd = fence;
             frame->socket = false;
-            frame->source = wl_event_loop_add_fd(frame->loop, fence, WL_EVENT_READABLE, deck_direct_released, frame);
+            frame->source = wl_event_loop_add_fd(frame->loop, fence,
+                WL_EVENT_READABLE, deck_direct_released, frame);
+            /* BUG-04: no source => never dispatched, would leak the fence FD
+             * and the dmabuf/AHB ref until process teardown. */
+            if (!frame->source) deck_direct_frame_destroy(frame);
         } else deck_direct_frame_destroy(frame);
     } else deck_direct_frame_destroy(frame);
     return 0;
@@ -72,7 +90,8 @@ static void deck_direct_complete(void *data, ASurfaceTransactionStats *stats) {
             c->cmsg_level = SOL_SOCKET; c->cmsg_type = SCM_RIGHTS;
             c->cmsg_len = CMSG_LEN(sizeof(int)); memcpy(CMSG_DATA(c), &fence, sizeof(fence));
         }
-        sendmsg(previous->fd, &msg, MSG_NOSIGNAL | MSG_DONTWAIT);
+        ssize_t sent = sendmsg(previous->fd, &msg, MSG_NOSIGNAL | MSG_DONTWAIT);
+        if (sent != 1) LOGW("deck_direct: release send failed errno=%d fence=%d", errno, fence);
         if (fence >= 0) close(fence);
         close(previous->fd);
         AHardwareBuffer_release(previous->buffer);

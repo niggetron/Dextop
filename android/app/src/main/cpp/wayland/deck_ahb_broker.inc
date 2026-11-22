@@ -1,19 +1,56 @@
 /* Android allocates gralloc buffers on behalf of the Deck glibc WSI.
  * Each connection owns one AHB; closing it drops that allocation reference.
  * Worker state is independent of the compositor and cannot touch Wayland. */
+#include <dlfcn.h>
 #include "deck_ahb_wire.h"
+
+/* BUG-05: resolve libnativewindow symbols once per process instead of on every
+ * AHB allocation. The handle is intentionally never dlclose'd: dlsym pointers
+ * would dangle, and the loader ref is tiny. */
+static pthread_once_t g_ahb_once = PTHREAD_ONCE_INIT;
+static void *g_ahb_nw = NULL;
+static const void *(*g_ahb_get_handle)(const AHardwareBuffer *) = NULL;
+
+static void deck_ahb_cache_symbols(void) {
+    g_ahb_nw = dlopen("libnativewindow.so", RTLD_NOW | RTLD_LOCAL);
+    if (g_ahb_nw) {
+        g_ahb_get_handle = (const void *(*)(const AHardwareBuffer *))
+            dlsym(g_ahb_nw, "AHardwareBuffer_getNativeHandle");
+    }
+}
+
 static bool deck_ahb_peer_allowed(int fd) {
     struct ucred peer; socklen_t length = sizeof(peer);
     if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &peer, &length)) return false;
-    char path[64], bytes[65536];
+    /* Reject other UIDs outright; the guest runs under the app's UID. */
+    if (peer.uid != getuid()) return false;
+    /* BUG-05: read the environment in bounded stack chunks instead of a 64 KB
+     * stack buffer. The full v2 token scheme lands with the Rust core (M5). */
+    char path[64];
     snprintf(path, sizeof(path), "/proc/%d/environ", peer.pid);
     int env = open(path, O_RDONLY | O_CLOEXEC);
-    ssize_t n = env >= 0 ? read(env, bytes, sizeof(bytes)) : -1;
-    if (env >= 0) close(env);
+    if (env < 0) return false;
     const char marker[] = "DEXTOP_STEAM_INSIDE=1";
-    for (ssize_t i = 0; i + (ssize_t)sizeof(marker) <= n; ++i)
-        if ((!i || !bytes[i-1]) && !memcmp(bytes+i, marker, sizeof(marker))) return true;
-    return false;
+    char window[sizeof(marker) + 4096];
+    size_t carried = 0;
+    bool found = false;
+    for (;;) {
+        ssize_t n = read(env, window + carried, sizeof(window) - carried - 1);
+        if (n <= 0) break;
+        size_t total = carried + (size_t)n;
+        window[total] = 0;
+        for (size_t i = 0; i + sizeof(marker) - 1 < total; ++i) {
+            if ((!i || window[i-1] == 0) && !memcmp(window + i, marker, sizeof(marker) - 1)) {
+                found = true;
+                break;
+            }
+        }
+        if (found) break;
+        carried = total > sizeof(marker) - 1 ? sizeof(marker) - 1 : total;
+        if (carried) memmove(window, window + total - carried, carried);
+    }
+    close(env);
+    return found;
 }
 
 static void *deck_ahb_worker(void *data) {
@@ -35,11 +72,10 @@ static void *deck_ahb_worker(void *data) {
         AHARDWAREBUFFER_USAGE_COMPOSER_OVERLAY | AHARDWAREBUFFER_USAGE_CPU_READ_RARELY | (UINT64_C(1) << 28);
     if (desc.usage & ~allowed) goto done;
     if (AHardwareBuffer_allocate(&desc, &buffer)) goto done;
-    void *nw = dlopen("libnativewindow.so", RTLD_NOW | RTLD_LOCAL);
-    const void *(*get_handle)(const AHardwareBuffer *) = nw ? dlsym(nw, "AHardwareBuffer_getNativeHandle") : NULL;
+    /* BUG-05: use the process-wide cached symbol; no per-allocation dlopen. */
+    pthread_once(&g_ahb_once, deck_ahb_cache_symbols);
     struct header { int version, num_fds, num_ints, data[]; };
-    const struct header *handle = get_handle ? get_handle(buffer) : NULL;
-    if (nw) dlclose(nw);
+    const struct header *handle = g_ahb_get_handle ? g_ahb_get_handle(buffer) : NULL;
     if (!handle || handle->num_fds < 1 || handle->num_fds > DECK_AHB_MAX_FDS ||
         handle->num_ints < 0 || handle->num_ints > DECK_AHB_MAX_INTS) goto done;
     AHardwareBuffer_describe(buffer, &desc);

@@ -32,6 +32,11 @@ internal class LaptopSwipeDecoder(context: Context) {
             learning.all.forEach { (key, value) -> (value as? Int)?.let { put(key, it) } }
         }
     }
+    // BUG-06: dedicated private monitors. Access-order LinkedHashMap.get() is a
+    // structural write and put() can evict, so all access must be serialized.
+    private val assetLock = Any()
+    private val lexiconLock = Any()
+    private val cacheLock = Any()
     private val assetLexicons = mutableMapOf<Language, List<Pair<String, String>>>()
     private val lexicons = mutableMapOf<Language, List<Lexeme>>()
     private val preparedTemplates = object : LinkedHashMap<TemplateKey, List<PreparedLexeme>>(4, .75f, true) {
@@ -135,11 +140,11 @@ internal class LaptopSwipeDecoder(context: Context) {
         if (normalizedKeys.size != keys.size) return emptyList()
         val signature = layoutSignature(keys, normalizedKeys)
         val cacheKey = TemplateKey(language, signature)
-        synchronized(preparedTemplates) {
+        synchronized(cacheLock) {
             preparedTemplates[cacheKey]?.let { return it }
         }
         val keyMap = keys.indices.associate { fold(keys[it].symbol) to normalizedKeys[it] }
-        val prepared = lexicon(language).mapNotNull { lexeme ->
+        val built = lexicon(language).mapNotNull { lexeme ->
             val rawShape = lexeme.trace.map { keyMap[fold(it)] ?: return@mapNotNull null }
                 .deduplicate()
             // keyMap is already normalized against the keyboard bounds. Do
@@ -149,10 +154,14 @@ internal class LaptopSwipeDecoder(context: Context) {
             if (sampled.size < 6) return@mapNotNull null
             PreparedLexeme(lexeme.value, lexeme.rank, sampled, pathLength(sampled))
         }
-        synchronized(preparedTemplates) {
-            preparedTemplates[cacheKey] = prepared
+        // Immutable snapshot: safe to score outside cacheLock, and eviction from
+        // the LRU cannot invalidate a list already handed to decode().
+        val prepared = java.util.Collections.unmodifiableList(ArrayList(built))
+        // One authoritative critical section: a concurrent winner is returned so
+        // both callers share the same snapshot instead of racing on put().
+        return synchronized(cacheLock) {
+            preparedTemplates[cacheKey] ?: prepared.also { preparedTemplates[cacheKey] = it }
         }
-        return prepared
     }
 
     private fun layoutSignature(keys: List<Key>, normalized: List<PointF>): Int {
@@ -165,7 +174,7 @@ internal class LaptopSwipeDecoder(context: Context) {
         return result
     }
 
-    private fun lexicon(language: Language): List<Lexeme> = synchronized(lexicons) {
+    private fun lexicon(language: Language): List<Lexeme> = synchronized(lexiconLock) {
         lexicons.getOrPut(language) {
         val pairs: List<Pair<String, String>> = when (language) {
             Language.EN -> ENGLISH_CONTRACTIONS + assetLexicon(language, R.raw.swipe_en)
@@ -185,7 +194,7 @@ internal class LaptopSwipeDecoder(context: Context) {
     }
 
     private fun assetLexicon(language: Language, rawResource: Int): List<Pair<String, String>> =
-        synchronized(assetLexicons) {
+        synchronized(assetLock) {
             assetLexicons.getOrPut(language) {
                 resources.openRawResource(rawResource).use { raw ->
                     GZIPInputStream(raw).use { gzip ->
