@@ -92,7 +92,7 @@ internal object WatchdogProtocol {
                 if (argv.size == 5) check(SAFE_VALUE.matches(argv[4]))
             }
             "wm" -> {
-                check(argv.size in 2..4)
+                check(argv.size in 2..5)
                 check(argv[1] in setOf("size", "density"))
                 check(argv.drop(1).all { it == "reset" || it == "-d" || SAFE_VALUE.matches(it) })
             }
