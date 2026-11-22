@@ -14,7 +14,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: beta-release
+  # Share the Android runner with debug-apk.yml / manual-release.yml.
+  group: android-gradle
   cancel-in-progress: false
 
 jobs:

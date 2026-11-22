@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/NarYuki/Dextop/releases/latest"><img src="docs/media/get-it-on-github.png" alt="Get it on GitHub" height="56"></a>
+  <a href="https://github.com/niggetron/Dextop/releases/latest"><img src="docs/media/get-it-on-github.png" alt="Get it on GitHub" height="56"></a>
   <a href="https://play.google.com/store/apps/details?id=moe.n4tsu.gpdextop"><img src="docs/media/get-it-on-google-play.png" alt="Get it on Google Play" height="56"></a>
 </p>
 
@@ -79,7 +79,7 @@ Dextop probes device capabilities at runtime and tries compatible backends in or
 <details>
 <summary><strong>Supported devices</strong></summary>
 
-The status below applies only to firmware versions that were actually tested. Open a vendor to see its devices. For feature-by-feature results, see the [Device compatibility wiki](https://github.com/NarYuki/Dextop/wiki/Device-Compatibility).
+The status below applies only to firmware versions that were actually tested. Open a vendor to see its devices. For feature-by-feature results, see the [Device compatibility wiki](https://github.com/niggetron/Dextop/wiki/Device-Compatibility).
 
 <details>
 <summary><strong>Samsung</strong></summary>
@@ -173,7 +173,7 @@ On HyperOS the privileged runtime, hidden-API bypass and forced freeform setting
 ## System requirements
 
 - Android 13 or later. Most devices require Android 14 or later for a usable desktop environment.
-- Current release: **Dextop 2.0.0**
+- Current prerelease: **Dextop 2.0.0-beta.3** (this fork; beta.2 published upstream)
 - Android Auto companions: **Dextop・Parking 2.1.0** and **Dextop・Driving 2.1.0**
 
 Dextop 1.5.0 and later include the access service needed for normal operation, so no external app or separate privileged service is required. Setup and first use can be completed with Dextop alone; Android may still show system permission or wireless-debugging pairing screens when required by the device.
@@ -184,7 +184,7 @@ Root, Stellar, Shizuku, and other compatible privileged services remain supporte
 
 Install Dextop from [Google Play](https://play.google.com/store/apps/details?id=moe.n4tsu.gpdextop).
 
-Alternatively, download the latest signed APK from [GitHub Releases](https://github.com/NarYuki/Dextop/releases/latest).
+Alternatively, download the latest debug-signed arm64 APK from [GitHub Releases](https://github.com/niggetron/Dextop/releases/latest).
 
 ### Releases from this fork (niggetron/Dextop)
 
@@ -214,11 +214,11 @@ from both the main UI and the overlay engine are captured in the same log.
 
 ### Nightly builds
 
-The latest development build is available from [GitHub Actions](https://github.com/NarYuki/Dextop/actions). Open the newest successful **Debug APK** workflow run and download its Nightly artifact to try changes that have not reached a stable release yet. The artifact contains matching Dextop and Dextop Car Companion debug APKs. Nightly builds are beta builds generated from the latest source and may contain unfinished features or regressions.
+The latest development build is available from [GitHub Actions](https://github.com/niggetron/Dextop/actions). Open the newest successful **Debug APK** workflow run and download its Nightly artifact to try changes that have not reached a stable release yet. The artifact contains matching Dextop and Dextop Car Companion debug APKs. Nightly builds are beta builds generated from the latest source and may contain unfinished features or regressions.
 
 ## Linux
 
-Dextop 2.0.0 runs Debian 13 applications on arm64 devices, as Android windows or on the Dextop desktop. Open the **Linux** tab to set it up. An internet connection and several GB of free storage are required.
+Dextop 2.0.0-beta.3 runs Debian 13 applications on arm64 devices, as Android windows or on the Dextop desktop. Open the **Linux** tab to set it up. An internet connection and several GB of free storage are required.
 
 Dextop downloads a signed, prebuilt image with the desktop components and GPU drivers, then installs the language, input method, and applications you choose. Interrupted downloads resume automatically. To use only Linux, select **Go to Linux containers** on the first page of Dextop's setup.
 
@@ -226,7 +226,7 @@ Linux runs with ordinary app permissions by default. The GitHub build also offer
 
 ## Android Auto quick start
 
-Android Auto support is split into two companion apps: **Dextop・Parking** (`moe.n4tsu.dextop.cardex`) and **Dextop・Driving** (`moe.n4tsu.dextop.cardex.driving`). Install the companion you need alongside a compatible Dextop build. Dextop verifies each companion's package and signing certificate before enabling the relay.
+Android Auto support is split into two companion apps: **Dextop・Parking** (`moe.n4tsu.dextop.cardex`) and **Dextop・Driving** (`moe.n4tsu.dextop.cardex.driving`). Install the companion you need alongside a compatible Dextop build. Dextop normally verifies each companion's package and signing certificate before enabling the relay. Fork release APKs are debug-signed and carry a suffixed package name (`moe.n4tsu.dextop.r<hash>`), so they cannot pair with the fixed-package Android Auto companions. Use an upstream signed build for Android Auto.
 
 Install **Dextop・Driving** through [AAEnabler](https://github.com/malebuffy/AAEnabler): download its APK from the matching Dextop release, open AAEnabler, select it with **Select local APK**, then tap **Install app** and complete Android's installation prompt. **Dextop・Parking** can be installed normally; if Parking does not appear in Android Auto, install or reinstall its APK through AAEnabler using the same steps. AAEnabler installs the original APK without modifying it or changing its signature.
 
@@ -243,12 +243,12 @@ Dextop provides two Android Auto entries with different platform requirements:
 4. Select **Start**. Parking forwards full head-unit touch; Driving accepts Android Auto's allowed click input and uses the phone controller for trackpad gestures and keyboard input.
 5. In Parking, swipe right from the left edge of the car display to open the Auto controls for workspaces, video reconnection, and stopping the session. Driving exposes its controls through the Car App interface.
 
-Android Auto controls whether a sideloaded parked app appears on a particular head unit. The default compatibility mode may show the Auto virtual-display overlay on the phone; an experimental hidden-display mode is available under **Dextop → Settings → Auto**. See the [Android Auto wiki](https://github.com/NarYuki/Dextop/wiki/Android-Auto) for installation details, display modes, gestures, controls, limitations, DHU testing, and troubleshooting.
+Android Auto controls whether a sideloaded parked app appears on a particular head unit. The default compatibility mode may show the Auto virtual-display overlay on the phone; an experimental hidden-display mode is available under **Dextop → Settings → Auto**. See the [Android Auto wiki](https://github.com/niggetron/Dextop/wiki/Android-Auto) for installation details, display modes, gestures, controls, limitations, DHU testing, and troubleshooting.
 
 ## Development
 
 ```sh
-git clone https://github.com/NarYuki/Dextop.git
+git clone https://github.com/niggetron/Dextop.git
 cd Dextop
 flutter pub get
 flutter analyze
@@ -266,7 +266,7 @@ Open **Settings → App information → Operation log and device diagnostics** t
 
 Open **Settings → Device report** to report how Dextop works on a specific device and firmware. Choose **Working**, **Not working**, or **Not tested** for the overall result and every listed feature, add optional notes, then tap **Send report by email**. Dextop prepares a structured Markdown report and opens your email app with `dextop-device@n4t.su` as the recipient.
 
-The report includes the device model, codename, Android/API version, firmware identifiers, security patch, Dextop version, detected capabilities, and the results you selected. Review the generated email before sending it. See [Device reports](https://github.com/NarYuki/Dextop/wiki/Device-Reports) for the complete field list and procedure.
+The report includes the device model, codename, Android/API version, firmware identifiers, security patch, Dextop version, detected capabilities, and the results you selected. Review the generated email before sending it. See [Device reports](https://github.com/niggetron/Dextop/wiki/Device-Reports) for the complete field list and procedure.
 
 This project is under active development. Available features and behavior may change with device firmware and Android updates.
 

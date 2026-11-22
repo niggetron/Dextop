@@ -11,7 +11,9 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  # Share the Android runner with debug-apk.yml / manual-release.yml so the
+  # memory-heavy Gradle build never overlaps another one.
+  group: android-gradle
   cancel-in-progress: false
 
 jobs:

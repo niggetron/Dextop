@@ -203,6 +203,13 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
         private const val PHONE_NAVIGATION_DISABLE_FLAGS =
             0x00200000 or 0x00400000 or 0x01000000
         private var instance: MirrorService? = null
+        // Companion-object Secure writes (accessibility enable/disable) share the
+        // instance WAL so kill -9 can restore the exact prior service list.
+        private val journalLock = Any()
+        private var journalInstance: SessionJournal? = null
+        internal fun journal(context: Context): SessionJournal = synchronized(journalLock) {
+            journalInstance ?: SessionJournal(context.applicationContext).also { journalInstance = it }
+        }
         private var carCompanionInputActive = false
 
         /** Samsung's accessibility input filter cancels alternating phone/virtual touch streams. */
@@ -285,6 +292,9 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
                 services.add(component)
                 if (instance == null && enabled) {
                     val withoutDextop = services.filterNot { it == component }
+                    journal(context).rememberSecure(
+                        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, current.ifBlank { null }
+                    )
                     Settings.Secure.putString(
                         context.contentResolver,
                         Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
@@ -1005,6 +1015,10 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
             ).orEmpty().split(':').filter { it.isNotBlank() }.toMutableSet()
             runCatching {
                 enabledForDemo = true
+                journal(context).rememberSecure(
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+                    services.joinToString(":").ifBlank { null },
+                )
                 if (services.add(component)) {
                     Settings.Secure.putString(
                         context.contentResolver,
@@ -1098,7 +1112,7 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
     private val physicalInputRouter by lazy { PhysicalInputRouter(this, privilegedAccess) }
     private val externalDisplayDetector by lazy { ExternalDisplayDetector(this) }
     private val coverDisplayController by lazy { CoverDisplaySessionController(this) }
-    private val sessionJournal by lazy { SessionJournal(this) }
+    private val sessionJournal get() = journal(this)
     private val internalRefreshRateController by lazy {
         InternalRefreshRateController(this, sessionJournal)
     }
@@ -12356,6 +12370,7 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
     private fun applyAutoLogicalSize() {
         val service = systemService("window", "android.view.IWindowManager")
         val type = Class.forName("android.view.IWindowManager")
+        sessionJournal.recordWm(targetDisplayId, "size", "reset", "${targetWidth}x$targetHeight")
         type.getMethod("setForcedDisplaySize", Int::class.javaPrimitiveType,
             Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
             .invoke(service, targetDisplayId, targetWidth, targetHeight)
@@ -12707,6 +12722,7 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
     }
 
     private fun applyXiaomiDesktopDensity(displayId: Int, dpi: Int) {
+        sessionJournal.recordWm(displayId, "density", "reset", dpi.toString())
         applyForcedMetric("setForcedDisplayDensityForUser", displayId, dpi, safeUserId())
         verifyDisplayMetrics(displayId, "density=$dpi")
     }
@@ -14045,6 +14061,10 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
     private fun disableDextopAccessibilityService() {
         runCatching {
             val own = ComponentName(this, MirrorService::class.java)
+            val currentServices = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+            sessionJournal.rememberSecure(
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, currentServices?.ifBlank { null }
+            )
             val remaining = Settings.Secure.getString(
                 contentResolver,
                 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES

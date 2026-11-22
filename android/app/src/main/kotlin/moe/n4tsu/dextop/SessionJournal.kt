@@ -138,6 +138,10 @@ internal class SessionJournal(private val context: Context) {
     fun rememberSystem(key: String, value: String?) =
         recordSetting(JournalScope.SYSTEM, key, JournalBefore(value != null, value), null)
 
+    /** MUST be called before a Settings.Secure write; first writer for a key wins. */
+    fun rememberSecure(key: String, value: String?) =
+        recordSetting(JournalScope.SECURE, key, JournalBefore(value != null, value), null)
+
     fun recordSetting(scope: JournalScope, key: String, before: JournalBefore, after: String?) {
         if (state.optString("phase", "idle") == "idle") {
             // Legacy callers may snapshot outside a session; open an implicit one.

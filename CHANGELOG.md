@@ -1,6 +1,10 @@
 # Changelog
 
-## [2.0.0-beta.3](https://github.com/niggetron/Dextop/releases/tag/v2.0.0-beta.3) — Android 16 / Redmi Pad Pro 5G rebuild
+## [2.0.0-beta.4](https://github.com/niggetron/Dextop/releases/tag/v2.0.0-beta.4) — Android 16 / Redmi Pad Pro 5G fixes
+
+> This section describes the M0–M2 work that will ship in beta.4. The earlier
+> `v2.0.0-beta.3` tag predates these fixes; do not use its notes as a guide to
+> the current source.
 
 ### Added
 
