@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Release version without leading v (e.g. 2.0.0-beta.3)
+        description: Release version without leading v (e.g. 2.0.0-beta.4)
         required: true
         type: string
       prerelease:
@@ -51,7 +51,7 @@ jobs:
           TARGET: ${{ github.sha }}
         run: |
           if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$'; then
-            echo "::error::$VERSION is not a valid version such as 2.0.0-beta.3"
+            echo "::error::$VERSION is not a valid version such as 2.0.0-beta.4"
             exit 1
           fi
           tag="v$VERSION"

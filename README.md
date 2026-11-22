@@ -163,8 +163,8 @@ On HyperOS the privileged runtime, hidden-API bypass and forced freeform setting
 | `xiaomi_force_freeform` | `true` | Restore `enable_freeform_support=1` and `wm set-display-windowing-mode 5` on SDK 36+ |
 | `xiaomi_pin_metrics` | `true` | Pin forced virtual-display size/density (HyperOS resets them otherwise) |
 | `xiaomi_laptop_direct_display` | `true` | Keep the direct-display workaround when laptop mode is on |
-| `xiaomi_tablet_touch_mode` | `direct` | Touch injection strategy (`accessibility`, `raw`, `direct`) |
-| `xiaomi_topology_layout` | auto | Override the Android 16 display-topology parcel layout |
+| `xiaomi_tablet_touch_mode` | `direct` | Touch injection strategy (`accessibility`, `raw`, `direct`) — reserved, no in-app writer yet |
+| `xiaomi_topology_layout` | auto | Override the Android 16 display-topology parcel layout — reserved, no in-app writer yet |
 
 </details>
 
@@ -173,7 +173,7 @@ On HyperOS the privileged runtime, hidden-API bypass and forced freeform setting
 ## System requirements
 
 - Android 13 or later. Most devices require Android 14 or later for a usable desktop environment.
-- Current prerelease: **Dextop 2.0.0-beta.3** (this fork; beta.2 published upstream)
+- Current prerelease: **Dextop 2.0.0-beta.4** (this fork; beta.2 published upstream)
 - Android Auto companions: **Dextop・Parking 2.1.0** and **Dextop・Driving 2.1.0**
 
 Dextop 1.5.0 and later include the access service needed for normal operation, so no external app or separate privileged service is required. Setup and first use can be completed with Dextop alone; Android may still show system permission or wireless-debugging pairing screens when required by the device.
@@ -231,7 +231,7 @@ The latest development build is available from [GitHub Actions](https://github.c
 
 ## Linux
 
-Dextop 2.0.0-beta.3 runs Debian 13 applications on arm64 devices, as Android windows or on the Dextop desktop. Open the **Linux** tab to set it up. An internet connection and several GB of free storage are required.
+Dextop 2.0.0-beta.4 runs Debian 13 applications on arm64 devices, as Android windows or on the Dextop desktop. Open the **Linux** tab to set it up. An internet connection and several GB of free storage are required.
 
 Dextop downloads a signed, prebuilt image with the desktop components and GPU drivers, then installs the language, input method, and applications you choose. Interrupted downloads resume automatically. To use only Linux, select **Go to Linux containers** on the first page of Dextop's setup.
 
