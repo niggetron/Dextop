@@ -1066,6 +1066,15 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
     private val isXiaomiProfile: Boolean
         get() = desktopEnvironment.id in XIAOMI_PROFILE_IDS
 
+    /**
+     * Only the narrow Redmi Pad Pro 5G tablet rule gets phone-tuned workarounds
+     * (metric pinning, direct display in laptop mode, touchpad range retry).
+     * The broad Xiaomi rule still gets the SDK-36 freeform fix, which is needed
+     * on phones too, but not the tablet geometry hacks.
+     */
+    private val isScopedXiaomiTablet: Boolean
+        get() = desktopEnvironment.id == XIAOMI_TABLET_PROFILE
+
     /** Defaults keep the Android 16 compatibility fixes on. */
     private val xiaomiFlags by lazy { XiaomiFeatureFlags(this) }
 
@@ -4669,7 +4678,7 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
                 virtualMouseDescriptor = device.descriptor
                 virtualPointerDisplayId = display.displayId
                 virtualPointerAssociationPending = false
-                if (isXiaomiProfile && profile == "touchpad") {
+                if (isScopedXiaomiTablet && profile == "touchpad") {
                     val x = device.getMotionRange(MotionEvent.AXIS_X, InputDevice.SOURCE_MOUSE)
                     val y = device.getMotionRange(MotionEvent.AXIS_Y, InputDevice.SOURCE_MOUSE)
                     val matches = x != null && y != null &&
@@ -12150,7 +12159,7 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
 
     private fun useDirectPlasmaDisplay(): Boolean =
         desktopEnvironment.directPlasmaDisplay && !autoOnlySession &&
-            (!laptopModeActive || (isXiaomiProfile && xiaomiFlags.laptopDirectDisplay)) &&
+            (!laptopModeActive || (isScopedXiaomiTablet && xiaomiFlags.laptopDirectDisplay)) &&
             moe.n4tsu.dextop.plasma.WindowManagerSelection.current(this) in setOf(
                 moe.n4tsu.dextop.plasma.WindowManagerSelection.DEXTOP_PLASMA_V2,
                 moe.n4tsu.dextop.plasma.WindowManagerSelection.DEXTOP_BOOK)
@@ -12182,7 +12191,9 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
                 showSystemDecorations,
                 configureBeforePublish = { displayId ->
                     if (isXiaomiProfile) {
-                        if (xiaomiFlags.pinMetrics) applyXiaomiDesktopDensity(displayId, density)
+                        if (isScopedXiaomiTablet && xiaomiFlags.pinMetrics) {
+                            applyXiaomiDesktopDensity(displayId, density)
+                        }
                         if (xiaomiFlags.forceFreeform) {
                             desktopModeConfigurator.configureDisplay(displayId, forceFreeform = true)
                         }
@@ -12487,7 +12498,7 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
             }
             requestImeRegionProbe("display_attached", force = true)
             clearInheritedDisplayOverrides(targetDisplayId)
-            if (isXiaomiProfile && xiaomiFlags.pinMetrics) applyXiaomiDesktopDensity(targetDisplayId, density)
+            if (isScopedXiaomiTablet && xiaomiFlags.pinMetrics) applyXiaomiDesktopDensity(targetDisplayId, density)
             configureDisplay()
             if (!autoOnlySession) {
                 val strategyOverride = configuredMirrorStrategyOverride()
@@ -12683,7 +12694,7 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
         // HyperOS keeps reporting the phone's size and density for a new virtual
         // display after the clear, so the desktop draws a shrunken portrait phone
         // layout. Setting the display's own metrics explicitly does stick.
-        if (isXiaomiProfile && xiaomiFlags.pinMetrics && displayId == targetDisplayId &&
+        if (isScopedXiaomiTablet && xiaomiFlags.pinMetrics && displayId == targetDisplayId &&
             targetWidth > 0 && targetHeight > 0
         ) {
             sessionJournal.recordWm(displayId, "size", "reset", "${targetWidth}x$targetHeight")
@@ -13312,7 +13323,7 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
                     Int::class.javaPrimitiveType
                 ).invoke(service, targetDisplayId, next.width, next.height)
             }
-            if (densityChanged || isXiaomiProfile) {
+            if (densityChanged || isScopedXiaomiTablet) {
                 type.getMethod(
                     "setForcedDisplayDensityForUser",
                     Int::class.javaPrimitiveType,
@@ -13357,7 +13368,7 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
                 "DisplayBackend",
                 "direct Plasma display resized applied=$updated desktop=${targetWidth}x$targetHeight/$density"
             )
-            if (isXiaomiProfile && xiaomiFlags.pinMetrics) {
+            if (isScopedXiaomiTablet && xiaomiFlags.pinMetrics) {
                 // HyperOS falls back to the phone's portrait size once the
                 // override is cleared, which shrinks the pointer viewport to a
                 // strip of the desktop. Pin the new size as at creation.
@@ -13426,7 +13437,7 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
             "live resized display=$targetDisplayId to ${next.width}x${next.height}/${next.density}; " +
                     "tasks retained " + displayGeometrySnapshot("live_resize_applied")
         )
-        if (isXiaomiProfile && sizeChanged &&
+        if (isScopedXiaomiTablet && sizeChanged &&
             virtualPointerRegisteredProfile == "touchpad" && virtualMouseProcessAlive()) {
             virtualMouseReady = false
             privilegedInputClient.setOutputReady(false)

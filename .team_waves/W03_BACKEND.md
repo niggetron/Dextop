@@ -9,7 +9,7 @@
 - No builds, no source edits.
 
 ## Findings
-- **P0 — device-scoped workarounds are manufacturer-scoped in practice.** `MirrorService.kt:178-181,1066-1067`: `isXiaomiProfile` is true for both `xiaomi_hyperos` and `xiaomi_redmi_pad_pro_5g`. Therefore every Xiaomi/Redmi/POCO *phone* runs `applyXiaomiDesktopDensity` (:12490,:12686), forced freeform (:12186,:12714), live-resize pinning (:13315,:13360), direct Plasma in laptop mode (:12153) and the touchpad-range retry (:4672). Violates SKILL.md:11 (a phone- tuned workaround must never reach the broad rule) and creates WAL writes that differ from the diagnosed device. Fix: replace every `isXiaomiProfile` guard with `activeBackend.id == BackendId.scoped("xiaomi_redmi_pad_pro_5g")`; broad Xiaomi resolves to C, which uses the environment's settings but none of the pin/force branches.
+- **P0 — device-scoped workarounds are manufacturer-scoped in practice.** `MirrorService.kt:178-181,1066-1067`: `isXiaomiProfile` is true for both `xiaomi_hyperos` and `xiaomi_redmi_pad_pro_5g`. Therefore every Xiaomi/Redmi/POCO *phone* runs `applyXiaomiDesktopDensity` (:12490,:12686), forced freeform (:12186,:12714), live-resize pinning (:13315,:13360), direct Plasma in laptop mode (:12153) and the touchpad-range retry (:4672). Violates SKILL.md:11 (a phone-tuned workaround must never reach the broad rule) and creates WAL writes that differ from the diagnosed device. Fix: replace every `isXiaomiProfile` guard with `activeBackend.id == BackendId.scoped("xiaomi_redmi_pad_pro_5g")`; broad Xiaomi resolves to C, which uses the environment's settings but none of the pin/force branches.
 - **P0 — no failover exists on HyperOS display-creation failure.** `MirrorService.kt:12151-12214`: a rejected direct `VirtualDisplay` ends in `completeStart(failure); stop()`. RISK_REGISTER expects HyperOS to strip `ADD_TRUSTED_DISPLAY`; the correct outcome is E→D (standalone Wayland Mode B, no DP Alt needed on this USB‑2.0 tablet) →F. Fix: `BackendSelector` + FSM `nextAfter()`; E teardown must finish WAL rollback before D initialize (no nested sessions).
 - **P1 — `BackendId` shape conflicts with the probe report.** `W03_PROBE.md:38` declares an enum; `BACKEND_ABSTRACTION_DESIGN.md:4` requires a sealed interface with `ScopedDeviceOem(profileId)`. Fix: adopt the sealed interface (code below); `BackendId.E` stays valid, but `recommendedBackend.name` (`W03_PROBE.md:341`) becomes `.key`, and `selectBackend` (`W03_PROBE.md:315`) must return `BackendId.scoped(REDMI_PAD_PRO_5G)` for the narrow rule and `C` for broad `xiaomi_hyperos`.
 - **P1 — flags are an unaudited side channel.** `XiaomiFeatureFlags.kt:14-24` reads legacy Flutter prefs with `true` defaults; they are not WAL-recorded and cannot be tied to a session config. Fix: read once into `BackendConfig.flags`, log effective values, never use them as match criteria; they are escape hatches, not capability proof.
@@ -175,9 +175,11 @@ internal class ScopedHyperOsBackend(private val runtime: BackendRuntime) : Deskt
             runtime.configurationStable(h.displayId ?: -1)) BackendHealth.HEALTHY
         else BackendHealth.FAILED
 
-    override fun applyWindowBounds(h: BackendHandle, taskId: Int, bounds: Rect, displayId: Int) =
-        runtime.moveTaskWindowingMode(taskId, 5 /* fullscreen */, displayId)
-            .also { /* setWindowingMode + setBounds via existing bridge, :2675-2687 */ }
+    // Existing bridge (:2675-2687): setWindowingMode(FULLSCREEN=5) then setBounds via TaskBridge.
+    override fun applyWindowBounds(h: BackendHandle, taskId: Int, bounds: Rect, displayId: Int): Boolean =
+        runtime.moveTaskWindowingMode(taskId, 5, displayId)
+
+    override fun teardown(handle: BackendHandle, reason: String) = handle.release()
 }
 ```
 E keeps every current device-specific branch gated on `activeBackend.id == id` instead of `isXiaomiProfile`: `MirrorService.kt:4672,12153,12490,12686,12714,13315,13360,13429`. Live resize stays identical (:13300-13434) but pin checks use `f.pinMetrics` from the session config, not a fresh pref read.
@@ -215,8 +217,6 @@ internal class BackendSelector(private val backends: Map<String, DesktopBackend>
     fun nextAfter(plan: BackendSelection, failed: BackendId): BackendId? =
         plan.order.dropWhile { it.id.key != failed.key }.drop(1)
             .firstOrNull { it.probe.ok && it.id.key != failed.key }?.id
-
-    private fun envEnv(b: DesktopBackend) = BackendEnvironment.of(b.id) // lookup, no I/O
 }
 ```
 `plan()` and `nextAfter()` are side-effect free and order-stable; the FSM may call `nextAfter()` repeatedly and always gets the same sequence. F is last and always `Probe.yes()`. D (`LinuxModeBackend`) requires `graphics.ahbZeroCopy.ok && graphics.asurfaceControl.ok` plus `LinuxModeContainers` Mode B availability and performs **no** Settings writes and **no** phone rotation changes; F (`GracefulBackend`) publishes a read-only compat surface + user-visible reason, never requests privileges.
@@ -273,7 +273,8 @@ private fun caps(identity: DeviceIdentity, rule: String?,
         Probe.yes(), Probe.yes()),
     CompatibilityProfile(DesktopEnvironmentRegistry.resolve(identity).id, "",
         rule, BackendId.fromRule(rule) ?: BackendId.F, emptyList(),
-        listOf("virtual_display"), emptyList(), emptySet()), 0L)
+        listOf("virtual_display"), emptyList(),
+        setOfNotNull("directPlasmaDisplay".takeIf { rule == BackendId.REDMI_PAD_PRO_5G })), 0L)
 
 private fun selector() = BackendSelector(listOf(
     ScopedHyperOsBackend(FakeRuntime()), LinuxModeBackend(FakeRuntime()),
@@ -286,7 +287,7 @@ private fun selector() = BackendSelector(listOf(
         plan.order.map { it.id.key })
     val s = selector()
     val e = BackendId.scoped("xiaomi_redmi_pad_pro_5g")
-    assertEquals(BackendId.D, s.nextAfter(plan, e))   // when E's cmd window probe rejects
+    assertEquals(BackendId.D, s.nextAfter(plan, e))   // E's successor, independent of runtime health
     assertEquals(BackendId.F, s.nextAfter(plan, BackendId.D))
     assertEquals(null, s.nextAfter(plan, BackendId.F))
     assertEquals(plan.order, s.plan(caps(redmiPadPro5g, "xiaomi_redmi_pad_pro_5g")).order)
