@@ -6,9 +6,7 @@ on:
   # enabled, use manual-release.yml (or run this workflow by hand once enabled).
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 concurrency:
   # Share the Android runner with debug-apk.yml / manual-release.yml so the
@@ -19,6 +17,9 @@ concurrency:
 jobs:
   release-pr:
     name: Update the release pull request
+    permissions:
+      contents: write
+      pull-requests: write
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -100,11 +101,13 @@ jobs:
 
   release-apk:
     name: Build and publish the arm64 debug APK
+    permissions:
+      contents: write
     needs: release-pr
     # Release Please emits a tag only on the push that merges the release PR.
     if: needs.release-pr.outputs.released_tag != ''
     # Debug-signed, arm64-only, suffixed package. No GITHUB_TOKEN event chaining.
-    uses: ./.github/workflows/release-apk.yml
+    uses: $/.github/workflows/release-apk.yml
     with:
       tag: ${{ needs.release-pr.outputs.released_tag }}
       version_name: ${{ needs.release-pr.outputs.released_version }}

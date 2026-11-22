@@ -10,8 +10,7 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: write
+permissions: {}
 
 concurrency:
   # Share the Android runner with debug-apk.yml / manual-release.yml.
@@ -21,13 +20,27 @@ concurrency:
 jobs:
   publish:
     name: Publish the pre-release
+    permissions:
+      contents: write
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
       tag: ${{ steps.publish.outputs.tag }}
       version: ${{ steps.publish.outputs.version }}
+      version_code: ${{ steps.meta.outputs.version_code }}
     steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Compute version code
+        id: meta
+        run: |
+          base=$(awk -F'+' '/^version:/{print $2; exit}' pubspec.yaml)
+          echo "version_code=$((base + 1))" >> "$GITHUB_OUTPUT"
+
       - name: Get the release app's token
         id: app
         if: vars.DEXTOP_RELEASE_APP_ID != ''
@@ -64,10 +77,13 @@ jobs:
 
   release-apk:
     name: Build and publish the arm64 debug APK
+    permissions:
+      contents: write
     needs: publish
     if: needs.publish.outputs.tag != ''
     # Debug-signed, arm64-only, suffixed package. No GITHUB_TOKEN event chaining.
-    uses: ./.github/workflows/release-apk.yml
+    uses: $/.github/workflows/release-apk.yml
     with:
       tag: ${{ needs.publish.outputs.tag }}
       version_name: ${{ needs.publish.outputs.version }}
+      version_code: ${{ needs.publish.outputs.version_code }}

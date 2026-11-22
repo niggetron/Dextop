@@ -17,8 +17,7 @@ on:
         type: boolean
         default: true
 
-permissions:
-  contents: write
+permissions: {}
 
 concurrency:
   group: android-gradle
@@ -27,6 +26,8 @@ concurrency:
 jobs:
   publish:
     name: Create the GitHub Release
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
@@ -73,9 +74,11 @@ jobs:
 
   release-apk:
     name: Build and publish the arm64 debug APK
+    permissions:
+      contents: write
     needs: publish
     if: needs.publish.outputs.tag != ''
-    uses: ./.github/workflows/release-apk.yml
+    uses: $/.github/workflows/release-apk.yml
     with:
       tag: ${{ needs.publish.outputs.tag }}
       version_name: ${{ needs.publish.outputs.version }}
