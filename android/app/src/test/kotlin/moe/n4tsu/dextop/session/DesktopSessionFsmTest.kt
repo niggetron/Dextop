@@ -43,6 +43,7 @@ class DesktopSessionFsmTest {
     fun pause_resume_and_lock_screen() {
         val fsm = DesktopSessionFsm()
         fsm.send(FsmEvent.StartRequested(config))
+        fsm.send(FsmEvent.SurfaceReady)
         fsm.send(FsmEvent.DisplayAttached(1, fsm.generation))
         fsm.send(FsmEvent.PauseRequested)
         assertTrue(fsm.state.value is FsmState.PausedForAndroid)
