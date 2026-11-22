@@ -96,7 +96,7 @@ internal object WatchdogProtocol {
                 check(argv[1] in setOf("size", "density"))
                 check(argv.drop(1).all { it == "reset" || it == "-d" || SAFE_VALUE.matches(it) })
             }
-            else -> error("argv0=${argv[0]}")
+            else -> error("argv=${argv[0]}")
         }
     }
 
