@@ -1,4 +1,4 @@
 # TECHNOLOGY_STACK_COMPARISON
 
-# Technology Stack Comparison
+DESIGN TARGET (not shipped): Kotlin+Compose M3E for UI + orchestration; Rust libdextop_core.so for data plane/Wayland/graphics/audio/installer/ADB TLS/input; C kept for PRoot/fastpath/preload; C++ phased out. Rejected: Go, C#, Zig. SHIPS TODAY: Flutter/Dart host UI (lib/, flutter Gradle plugin, `flutter build apk`) plus native Kotlin; only M0–M2 native fixes added. No Rust crate, no Compose module, no backend A–F code. Full 15-criteria matrix in master blueprint Part D.
 Kotlin+Compose M3E: UI + platform orchestration (chosen). Rust libdextop_core.so: data plane, Wayland, graphics, audio, installer, ADB TLS, input (chosen). C: PRoot/fastpath/preload only (preserved). C++: phased out. Flutter/Dart: retired. Rejected: Go (GC/cgo), C# (CLR bloat), Zig (ABI/toolchain friction). Full 15-criteria matrix in the master blueprint Part D.

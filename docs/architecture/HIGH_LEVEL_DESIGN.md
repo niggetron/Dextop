@@ -1,4 +1,4 @@
 # HIGH_LEVEL_DESIGN
 
-# High-Level Design
+DESIGN TARGET (layers 1–5 not shipped): 1 Presentation (Compose M3E); 2 Orchestration (FSM, Workspace, Window, Display, Input coordinators); 3 Domain models; 4 Backends A–F + PrivilegeProvider; 5 Rust native core; 6 C kernel/guest boundary; 7 Persistence/recovery/diagnostics. SHIPS NOW: Flutter/Dart presentation + native Kotlin services; only DesktopSessionFsm, atomic WAL and detached watchdog exist; no Compose module, backends A–F, or Rust core. Full Mermaid HLD in master blueprint Part F.1.
 Layers: 1 Presentation (Compose M3E); 2 Orchestration (FSM, Workspace, Window, Display, Input coordinators); 3 Domain models; 4 Backends A-F + PrivilegeProvider; 5 Rust native core; 6 C kernel/guest boundary; 7 Persistence/recovery/diagnostics. Full Mermaid HLD in master blueprint Part F.1.

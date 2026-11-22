@@ -186,6 +186,19 @@ Install Dextop from [Google Play](https://play.google.com/store/apps/details?id=
 
 Alternatively, download the latest debug-signed arm64 APK from [GitHub Releases](https://github.com/niggetron/Dextop/releases/latest).
 
+### Implementation status of the current source
+
+This fork has applied **M0–M2** of the engineering blueprint: atomic session WAL
+(all Android 16 keys restored, crash-safe), off-main-thread windowing IPC, native
+epoll/AHB/swipe fixes, a read-only capability snapshot plus an ADB capture script,
+a deterministic session FSM and a detached 15-second rollback watchdog.
+
+**M3–M8 are design work only** (recorded in `.team_waves/` and `docs/architecture/`):
+the Flutter host UI is still the shipping UI; there is no Rust `libdextop_core.so`,
+no Compose host shell, no backends A–F source, and no portals/terminal/tiling
+shipped yet. No on-device validation was possible in this environment. Builds and
+tests are verified by GitHub Actions only.
+
 ### Releases from this fork (niggetron/Dextop)
 
 Every publish (stable release, beta release or manual `workflow_dispatch`) runs

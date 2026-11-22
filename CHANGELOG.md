@@ -2,9 +2,16 @@
 
 ## [2.0.0-beta.4](https://github.com/niggetron/Dextop/releases/tag/v2.0.0-beta.4) — Android 16 / Redmi Pad Pro 5G fixes
 
-> This section describes the M0–M2 work that will ship in beta.4. The earlier
-> `v2.0.0-beta.3` tag predates these fixes; do not use its notes as a guide to
-> the current source.
+> The bullets below were carried over from beta.3 (diagnostics, Xiaomi switches,
+> release workflow) and do NOT describe this session's work. Actually in this
+> tree: BUG-01 atomic WAL restores every mutated key (all 7 SDK-36 modernKeys +
+> Secure writes, fsync before mutation, reverse-order verified restore); BUG-02
+> off-main cancellable wm IPC; BUG-04 epoll spin/FD-leak fix; BUG-05 AHB broker
+> stack-buffer/dlopen/auth fix; BUG-06 LaptopSwipeDecoder LRU synchronization;
+> M1 CapabilitySnapshot + tool/hyperos_capability_capture.sh; M2
+> DesktopSessionFsm + detached 15 s watchdog + 3 JVM test classes. None of
+> M3–M8 has shipped. The `v2.0.0-beta.3` tag predates these fixes; beta.4 is
+> not yet released.
 
 ### Added
 
