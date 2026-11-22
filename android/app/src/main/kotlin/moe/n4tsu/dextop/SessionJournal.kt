@@ -71,6 +71,7 @@ internal class SessionJournal(private val context: Context) {
         val sessionId = UUID.randomUUID().toString()
         append("begin", JSONObject()
             .put("sessionId", sessionId)
+            .put("phase", "preparing") // CRITICAL: opens the WAL so mutations append instead of resetting
             .put("width", width).put("height", height).put("density", density)
             .put("decorations", decorations)
             .put("mutations", initial), reset = true)
@@ -376,11 +377,15 @@ internal class SessionJournal(private val context: Context) {
         }
         "overlay" -> {
             val before = if (record.isNull("value")) null else record.getString("value")
-            runCatching {
-                Settings.Global.putString(
-                    context.contentResolver, DisplayMirrorBackend.DISPLAY_SPECIFICATION, before
-                )
-            }.getOrDefault(false)
+            if (before == null) {
+                writeSetting(JournalScope.GLOBAL, DisplayMirrorBackend.DISPLAY_SPECIFICATION, null)
+            } else {
+                runCatching {
+                    Settings.Global.putString(
+                        context.contentResolver, DisplayMirrorBackend.DISPLAY_SPECIFICATION, before
+                    )
+                }.getOrDefault(false)
+            }
         }
         "wallpaper" -> true // handled by restoreWallpaperDimensions
         else -> true

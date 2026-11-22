@@ -1,0 +1,46 @@
+# Web Agent W16C — Wave 16 Report
+
+## Scope inspected
+Active GitHub/web search (Nov 2026) for NEW/relevant agent-skill repos in six lanes: Android security audit, hidden API, privileged shell, Perfetto, GHA safety (zizmor/pinact), Compose perf. No source edits, no token use.
+
+## Findings — new repos, offering, exact Dextop applicability
+
+### Perfetto analysis
+- **google/perfetto (OFFICIAL AI skill — NEW, supersedes `aldefy/perfetto-android-skills`)** — https://github.com/google/perfetto/blob/main/docs/getting-started/using-ai.md ; skills: https://github.com/google/perfetto/tree/main/ai/skills ; RFCs: https://github.com/google/perfetto/discussions/5763 , /5892 . Offering: `perfetto/` SKILL.md bundles `trace_processor`; loads `.pftrace`, writes PerfettoSQL, guided Android **memory (heap dumps/retention) + GPU** workflows, trace recording; OpenCode-native install via `opencode.json` → `skills.urls: ["https://raw.githubusercontent.com/google/perfetto/ai-agents/plugins/perfetto/skills"]`. **Dextop:** P0 — use in M2 to prove BUG-02 (blocking `wm` IPC on main looper) and FSM/WAL latency; in M6/M7 for 12.1" 120 Hz jank, AHB zero-copy and Wayland input latency; BUG-04 epoll busy-spin. Prefer official over community skill.
+- **Gracker/Perfetto-Skills** — https://github.com/Gracker/Perfetto-Skills . Offering: evidence-driven Android/Linux/Chromium Perfetto skill; SQL recipes, capability gates, evidence/identity rules. **Dextop:** P2 fallback; Linux Mode B (backend D) trace analysis.
+- **tmolavi/mcp-agent-skills-hub `perfetto-trace-analysis`** — https://github.com/tmolavi/mcp-agent-skills-hub/blob/main/skills/perfetto-trace-analysis/SKILL.md . **Dextop:** P3 alternate.
+
+### GitHub Actions safety (zizmor / pinact)
+- **Seldaek/zizmorify** — https://github.com/Seldaek/zizmorify . Offering: `/add-zizmor` adds `.github/workflows/zizmor.yml` + `dependabot.yml`, runs zizmor in **pedantic** mode and iterates to zero findings — pins actions to commit SHAs, tightens/documents `permissions`, adds `concurrency`/`persist-credentials:false`, removes template injection, replaces `$GITHUB_ENV` writes with step outputs, `gh` CLI for PR steps, opens a PR; never uses suppression comments. **Dextop:** P0 — BRIEF mandates GitHub-Actions-only builds; apply to Dextop CI so no token/secret leaks pre-M8 sign-off.
+- **konstruktoid/agent-instructions-skills `github-actions-security` (Grade A/100)** — https://skillsdirectory.com/skills/konstruktoid-github-actions-security ; source https://github.com/konstruktoid/agent-instructions-skills/blob/main/skills/github/github-actions-security/SKILL.md . Offering: `permissions:{}` deny-by-default, SHA pinning via **pinact**/ratchet, untrusted-event handling, OIDC, `pull_request_target`/`workflow_run` rules, verify loop with `actionlint` + `zizmor@1.31.1 --persona=pedantic`, dedicated agentic-workflow reference. **Dextop:** P0 — direct fit because Dextop CI runs an AI agent with write access; harden the token/tools/network gate.
+- **pinact (tool referenced by both)** — https://github.com/suzuki-shunsuke/pinact (`pinact run -check` for lint). **Dextop:** P1 tool to re-pin every `uses:` in Dextop workflows.
+- **munzzyy/ci-safety-gate** — https://github.com/munzzyy/ci-safety-gate . Offering: single gate action running zizmor + skillxray + fork-PR checkout check + secrets scan over workflows/skills/MCP bundles. **Dextop:** P2 — one-check gate for all agent-skill repos Dextop adopts.
+- **basecamp/dev-skills `harden-github-actions`/zizmor-resolution** — https://skills.lc/basecamp/dev-skills/basecamp-dev-skills-skills-harden-github-actions-skill-md . **Dextop:** P2 alternate.
+
+### Android security auditing
+- **FelixGraeber/claude-android-audit-skill** — https://github.com/FelixGraeber/claude-android-audit-skill . Offering: 6 skills + shared `audit-context.json`; `/android security` (OWASP), `/android compat` (**Android 15/16**, predictive back, edge-to-edge), `/android performance`, `/android architecture`; generates `ANDROID-AUDIT-REPORT.md` + action plan; confidence-aware. **Dextop:** P0 for M8 sign-off and API-36/HyperOS 3 compatibility preflight across backends A–F.
+- **liuyi0808/android-review** — https://github.com/liuyi0808/android-review . Offering: 7 skills; `security-audit` = OWASP MASVS v2.0, 51 items w/ CWE; `performance`, `compose-ui`, `kotlin-quality`; tracks **Aug 31 2026 Play target API 36** deadline and Feb 2027 16 KB page requirement. **Dextop:** P0/P1 — 16 KB page rule matters for `libdextop_core.so`/PRoot native; use security-audit for `PrivilegeGate`/WAL signing.
+- **mcpmarket `android-security-auditor`** — https://mcpmarket.com/tools/skills/android-security-auditor . Offering: git-diff-based Android security review. **Dextop:** P3 for per-PR security gate.
+
+### Hidden API usage
+- **No dedicated "hidden/non-SDK API adapter" skill exists** — confirmed gap. Authoritative reference: Android non-SDK restrictions — https://developer.android.com/distribute/best-practices/develop/restrictions-non-sdk-interfaces (reflection via `Class.getDeclaredMethod`/`getMethod` throws `NoSuchMethodException` on greylist/blacklist). **Dextop:** directly supports BRIEF rule — isolate hidden APIs behind versioned adapters that detect these failures and fall back to public ASurfaceControl/AHardwareBuffer/AAudio/AChoreographer/ADPF. Good candidate for repo-local skill `dextop-hyperos-oem-backends`.
+- **alvinhayy/Mobile-ReverseSkill** — https://github.com/alvinhayy/Mobile-ReverseSkill . Offering: `afl-fuzzing` (on-device arm64 AFL++, stub `JNIEnv` harness, ASan, poison-pointer harness validation), `registernatives-dump`/`mobile-vuln-hunt`, rooted AVD; native opencode support. **Dextop:** P1 — probe/fuzz `libdextop_core.so` JNI and BUG-05 `deck_ahb_broker.inc` dlopen/dlsym native boundary; learn hidden-symbol behavior empirically.
+- **SimoneAvogadro/android-reverse-engineering-skill** — https://github.com/SimoneAvogadro/android-reverse-engineering-skill ; plus incogbyte https://github.com/incogbyte/android-reverse-engineering-claude-skill , rafaelsteil https://github.com/rafaelsteil/android-reverse-engineering-skill , nqmgaming https://github.com/nqmgaming/android-re . Offering: DEX string scan, HTTP-stack detection under obfuscation, native-lib analysis. **Dextop:** P2 — analyze OEM/HyperOS APIs and hidden display APIs on the Redmi Pad Pro 5G.
+
+### Privileged shell hardening
+- **ferrumclaudepilgrim/claude-code-android `termux-safe`** — https://github.com/ferrumclaudepilgrim/claude-code-android/blob/HEAD/.claude/skills/termux-safe/SKILL.md . Offering: hard rules — no `sudo`/`su`/`doas`, no systemd, no standard Linux paths, no ports <1024, `pkg` over `apt`, phantom-process/background-kill and `ulimit -n` warnings, `command -v` checks, detects chroot vs Termux via `$PREFIX`. **Dextop:** P1 — on-device ADB shell/PRoot boundary hardening; prevents privilege-escalation suggestions during M1 capability capture and PRoot/fastpath work.
+- **Neem2004/android-mcp-server `android-adb`** — https://github.com/Neem2004/android-mcp-server/blob/main/skills/android-adb/SKILL.md . Offering: shell allowlist (`getprop`/`dumpsys`/`pm list`), rejects chaining (`&&`/`||`/`;`/`|`), never requests root, never clears log buffer without intent. **Dextop:** P1 — model for typed `PrivilegeGate` + ADB capability capture (M1), deny-by-default shell access.
+- **jparedesDS/cleanyourphone** — https://github.com/jparedesDS/cleanyourphone . Offering: reversible, no-root, guardrailed ADB skill profiles. **Dextop:** P2 — reference for guardrail design on unrooted HyperOS.
+
+### Compose performance
+- **skydoves/compose-performance-skills** (in BRIEF; confirmed live detail) — https://github.com/skydoves/compose-performance-skills ; spec https://github.com/skydoves/compose-performance-skills/blob/main/docs/SPEC.md . Offering: per-issue SKILL.md incl. `recomposition/deferring-state-reads` — move frequently-changing reads (scroll/animation/drag) out of Composition into Layout/Draw via lambda modifiers; stability. **Dextop:** P0 — apply to Compose Book shell StateFlow FSM (BUG-03), 64 KB SPSC input ring, 120 Hz surfaces; avoid recomposition storms from input/jank state.
+- **android/skills official `jetpack-compose-performance`** — https://github.com/android/skills/blob/main/jetpack-compose/jetpack-compose-performance/SKILL.md . Offering: official diagnose/optimize Compose performance. **Dextop:** P1 — canonical counterpart to `android/skills` already in BRIEF.
+
+## Deliverable (web citations)
+All findings above cite GitHub/docs URLs inline; no local changes made beyond this report.
+
+## Risks / device testing needed
+- Perfetto GPU/counter depth is deepest for NVIDIA/CUDA — Mali/Adreno on Redmi Pad Pro 5G may need fallback to systrace-style CPU/frame timeline; verify on device.
+- Hidden-API adapter rules must be validated on **API 36 / HyperOS 3** specifically (greylist changes between Android versions); no skill automates this — author repo-local adapter skill.
+- zizmor/pinact run locally only via GitHub Actions in Dextop; ensure token is never printed in workflow logs (CI gate must mask it).
+- Skill supply chain: prefer official (google/perfetto, android/skills, konstruktoid) over community repos; run skillxray/ci-safety-gate before adoption.
