@@ -85,6 +85,7 @@ internal class DiagnosticReport(private val context: Context) {
         CapabilityProbe(context, PrivilegedAccess("DextopProbe")).run().forEach { (key, value) ->
             sb.append(line("probe.$key", "supported=${value.supported} detail=${value.detail}"))
         }
+        CapabilitySnapshotEngine(context).snapshot().toReportLines().forEach { sb.append("$it\n") }
         sb.append("\n[CPU / MEMORY / STORAGE]\n")
         sb.append(line("processors", Runtime.getRuntime().availableProcessors()))
         sb.append(line("memoryTotalBytes", memory.totalMem))

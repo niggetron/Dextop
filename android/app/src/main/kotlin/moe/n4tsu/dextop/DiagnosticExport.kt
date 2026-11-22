@@ -55,6 +55,8 @@ internal object DiagnosticExport {
         add("session-log.txt", if (options.includeFullSessionLog)
             OperationLog.snapshot(context) else OperationLog.tailSnapshot())
         add("flutter-errors.txt", OperationLog.tailSnapshot())
+        add("capability-snapshot.txt", CapabilitySnapshotEngine(context).snapshot()
+            .toReportLines().joinToString("\n"))
         zip.close()
     }
 }
