@@ -36,6 +36,7 @@ internal class SessionJournal(private val context: Context) {
     private val directory = File(context.filesDir, "dextop_session")
     private val walFile = File(directory, "session_journal.wal")
     private val privileged = PrivilegedAccess("DextopSessionRecovery")
+    private val watchdog by lazy { WatchdogClient(context, PrivilegedAccess("DextopWatchdog")) }
     private var state = blankState()
     private var sequence = 0L
 
@@ -67,11 +68,66 @@ internal class SessionJournal(private val context: Context) {
             .put(JSONObject()
                 .put("id", "wallpaper").put("kind", "wallpaper")
                 .put("width", wallWidth).put("height", wallHeight))
+        val sessionId = UUID.randomUUID().toString()
         append("begin", JSONObject()
-            .put("sessionId", UUID.randomUUID().toString())
+            .put("sessionId", sessionId)
             .put("width", width).put("height", height).put("density", density)
             .put("decorations", decorations)
             .put("mutations", initial), reset = true)
+        armWatchdog(sessionId)
+    }
+
+    /** Translate the journal's recorded mutations into allowlisted shell argv. */
+    private fun watchdogActions(): List<WatchdogProtocol.RestoreAction> = buildList {
+        val mutations = mutations()
+        for (index in 0 until mutations.length()) {
+            val record = mutations.getJSONObject(index)
+            when (record.optString("kind")) {
+                "setting" -> {
+                    val scope = record.optString("namespace", "global")
+                    val key = record.optString("key")
+                    val value = if (record.isNull("value")) null else record.optString("value")
+                    val argv = if (value == null) {
+                        listOf("settings", "delete", scope, key)
+                    } else {
+                        listOf("settings", "put", scope, key, value)
+                    }
+                    if (runCatching { WatchdogProtocol.validate(argv) }.isSuccess) {
+                        add(WatchdogProtocol.RestoreAction("setting", argv))
+                    }
+                }
+                "wm" -> {
+                    val displayId = record.optInt("displayId")
+                    val command = record.optString("command", "size")
+                    val value = record.optString("value", "reset")
+                    val argv = if (value == "reset") {
+                        listOf("wm", command, "reset", "-d", displayId.toString())
+                    } else {
+                        listOf("wm", command, value, "-d", displayId.toString())
+                    }
+                    if (runCatching { WatchdogProtocol.validate(argv) }.isSuccess) {
+                        add(WatchdogProtocol.RestoreAction("wm", argv))
+                    }
+                }
+                "overlay" -> {
+                    val value = if (record.isNull("value")) null else record.optString("value")
+                    val argv = if (value == null) {
+                        listOf("settings", "delete", "global", DisplayMirrorBackend.DISPLAY_SPECIFICATION)
+                    } else {
+                        listOf("settings", "put", "global", DisplayMirrorBackend.DISPLAY_SPECIFICATION, value)
+                    }
+                    if (runCatching { WatchdogProtocol.validate(argv) }.isSuccess) {
+                        add(WatchdogProtocol.RestoreAction("overlay", argv))
+                    }
+                }
+                "wallpaper" -> add(WatchdogProtocol.RestoreAction("wallpaper", emptyList(), true))
+            }
+        }
+    }
+
+    private fun armWatchdog(id: String) {
+        runCatching { watchdog.arm(id, watchdogActions()) }
+            .onFailure { Log.w("DextopSessionJournal", "watchdog arm failed", it) }
     }
 
     /** MUST be called before a Settings mutation; first writer for a key wins. */
@@ -151,7 +207,10 @@ internal class SessionJournal(private val context: Context) {
                 "restore incomplete; journal kept for retry pending=${mutations.length()}")
             return false
         }
+        val sessionId = state.optString("sessionId", "")
         append("commit", JSONObject().put("restoredAtMs", System.currentTimeMillis()))
+        runCatching { watchdog.ack(sessionId) }
+            .onFailure { Log.w("DextopSessionJournal", "watchdog ack failed", it) }
         return true
     }
 
@@ -234,6 +293,9 @@ internal class SessionJournal(private val context: Context) {
             }
             runCatching { FileInputStream(directory).use { it.fd.sync() } }
             applyEvent(record, data)
+        }
+        if (operation == "mutate") {
+            armWatchdog(state.optString("sessionId", ""))
         }
     }
 

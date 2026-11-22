@@ -8,3 +8,5 @@
 -keep class moe.n4tsu.dextop.linux.LinuxServiceHost { *; }
 -keep class moe.n4tsu.dextop.linux.ILinuxContainerService$Stub { *; }
 -keep class moe.n4tsu.dextop.linux.ILinuxContainerCallback$Stub { *; }
+# Detached rollback watchdog, launched via app_process (not discoverable by R8).
+-keep class moe.n4tsu.dextop.WatchdogDaemon { *; }

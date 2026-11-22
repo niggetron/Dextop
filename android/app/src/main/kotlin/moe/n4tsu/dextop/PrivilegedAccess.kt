@@ -40,6 +40,27 @@ internal class PrivilegedAccess(private val tag: String) {
         Log.e(tag, "privileged command failed: ${arguments.joinToString(" ")}", it)
     }.getOrElse { CommandResult(-1, "", it.message.orEmpty()) }
 
+    /** Privileged command with stdin, used to pass the watchdog token without argv leakage. */
+    fun executeWithInput(input: String, vararg arguments: String): CommandResult = runCatching {
+        DistributionPrivilegeRuntime.execute(arguments, input)?.let {
+            return@runCatching CommandResult(it.exitCode, it.output, it.error)
+        }
+        val binder = Shizuku.getBinder()
+            ?: error(NativeStrings.text("nativeShizukuUnavailable"))
+        val process = IShizukuService.Stub.asInterface(binder)
+            .newProcess(
+                arguments,
+                java.io.ByteArrayInputStream(input.toByteArray()),
+                null,
+            )
+        val output = android.os.ParcelFileDescriptor.AutoCloseInputStream(process.inputStream)
+            .bufferedReader().use { it.readText() }
+        val exitCode = process.waitFor()
+        CommandResult(exitCode, output.trim(), "")
+    }.onFailure {
+        Log.e(tag, "privileged command with input failed", it)
+    }.getOrElse { CommandResult(-1, "", it.message.orEmpty()) }
+
     data class CommandResult(val exitCode: Int, val output: String, val error: String) {
         val succeeded: Boolean get() = exitCode == 0
     }
