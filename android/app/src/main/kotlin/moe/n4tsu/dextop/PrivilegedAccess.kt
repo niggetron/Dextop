@@ -47,12 +47,10 @@ internal class PrivilegedAccess(private val tag: String) {
         }
         val binder = Shizuku.getBinder()
             ?: error(NativeStrings.text("nativeShizukuUnavailable"))
+        // This Shizuku binder overload takes (args, envp, fds); stdin is not
+        // available here, so pass the watchdog token via an env var instead.
         val process = IShizukuService.Stub.asInterface(binder)
-            .newProcess(
-                arguments,
-                java.io.ByteArrayInputStream(input.toByteArray()),
-                null,
-            )
+            .newProcess(arguments, arrayOf("DEXTOP_WD_TOKEN=$input"), null)
         val output = android.os.ParcelFileDescriptor.AutoCloseInputStream(process.inputStream)
             .bufferedReader().use { it.readText() }
         val exitCode = process.waitFor()

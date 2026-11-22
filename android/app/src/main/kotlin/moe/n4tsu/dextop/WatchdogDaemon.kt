@@ -31,7 +31,9 @@ object WatchdogDaemon {
     fun main(args: Array<String>) {
         if (args.isEmpty()) return
         val appUid = args[0].toIntOrNull() ?: return
-        val token = System.`in`.bufferedReader().use { it.readLine() } ?: return
+        val token = System.getenv("DEXTOP_WD_TOKEN")
+            ?: System.`in`.bufferedReader().use { it.readLine() }
+            ?: return
         val server = try {
             LocalServerSocket("@dextop.wd.$appUid")
         } catch (error: IOException) {
