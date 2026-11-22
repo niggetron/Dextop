@@ -2829,6 +2829,8 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
 
     override fun onDestroy() {
         serviceDestroyed = true
+        // BUG-02: last-chance cancellation on service death.
+        desktopModeConfigurator.cancelPendingWork()
         stopPlasmaShell(restoreWindows = false)
         runCatching { autoOwnedDisplay?.attachment?.release() }
         autoOwnedDisplay = null
@@ -12684,6 +12686,8 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
         if (isXiaomiProfile && xiaomiFlags.pinMetrics && displayId == targetDisplayId &&
             targetWidth > 0 && targetHeight > 0
         ) {
+            sessionJournal.recordWm(displayId, "size", "reset", "${targetWidth}x$targetHeight")
+            sessionJournal.recordWm(displayId, "density", "reset", density.toString())
             applyForcedMetric("setForcedDisplaySize", displayId, targetWidth, targetHeight)
             applyForcedMetric("setForcedDisplayDensityForUser", displayId, density, userId)
             verifyDisplayMetrics(displayId, "size=${targetWidth}x$targetHeight density=$density")
@@ -13864,6 +13868,8 @@ class MirrorService : AccessibilityService(), SurfaceHolder.Callback {
     private fun stop() {
         if (stopping) return
         stopping = true
+        // BUG-02: kill stale 250/750 ms wm re-applies before restoring settings.
+        desktopModeConfigurator.cancelPendingWork()
         if (coverDisplayController.state().backButtonsActive) {
             coverDisplayController.stopBackButtonMode { }
         }
