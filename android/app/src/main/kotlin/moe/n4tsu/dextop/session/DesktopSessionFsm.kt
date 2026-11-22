@@ -127,7 +127,7 @@ internal class DesktopSessionFsm(initial: FsmState = FsmState.Idle) {
                 val ctx = when (state) {
                     is FsmState.Preparing -> state.ctx
                     is FsmState.CreatingDisplay -> state.ctx
-                    else -> error("unreachable")
+                    else -> error("state=$state")
                 }.copy(displayId = event.displayId)
                 Transition(FsmState.Running(ctx), listOf(
                     FsmEffect.ConfigureDisplay(event.displayId, ctx.generation),

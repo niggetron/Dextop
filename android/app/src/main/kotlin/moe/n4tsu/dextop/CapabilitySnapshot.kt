@@ -112,7 +112,8 @@ internal class CapabilitySnapshotEngine(private val context: Context) {
             Probe.yes("setting_readable")
         } else Probe.no("overlay_setting_unavailable")
         display["maxRefreshRate"] = displays.maxOfOrNull { display ->
-            display.supportedModes.maxOfOrNull { it.refreshRate } ?: display.refreshRate
+            display.getSupportedModes().maxOfOrNull { mode -> mode.getRefreshRate() }
+                ?: display.getRefreshRate()
         }?.let { Probe.yes("${it}Hz") } ?: Probe.no("no_display_modes")
 
         val windowing = linkedMapOf<String, Probe>()
@@ -133,22 +134,29 @@ internal class CapabilitySnapshotEngine(private val context: Context) {
             Probe.yes(matchedRule)
         } else Probe.no("generic_profile")
 
-        val inputDevices = InputDevice.getDeviceIds().mapNotNull { InputDevice.getDevice(it) }
+        val inputDevices = mutableListOf<InputDevice>()
+        for (id in InputDevice.getDeviceIds()) {
+            val device = InputDevice.getDevice(id)
+            if (device != null) inputDevices.add(device)
+        }
         val input = linkedMapOf<String, Probe>()
         input["multiTouch"] = Probe(
             supported = inputDevices.any { device ->
-                device.sources and InputDevice.SOURCE_TOUCHSCREEN != 0 && device.motionRanges.any { range ->
-                    range.max > range.min
-                }
+                device.getSources() and InputDevice.SOURCE_TOUCHSCREEN != 0 &&
+                    device.getMotionRanges().any { range -> range.getMax() > range.getMin() }
             },
             reason = "no_multitouch_device"
         )
         input["externalMouse"] = Probe(
-            supported = inputDevices.any { it.sources and InputDevice.SOURCE_MOUSE != 0 },
+            supported = inputDevices.any { device ->
+                device.getSources() and InputDevice.SOURCE_MOUSE != 0
+            },
             reason = "no_mouse"
         )
         input["externalKeyboard"] = Probe(
-            supported = inputDevices.any { it.sources and InputDevice.SOURCE_KEYBOARD != 0 },
+            supported = inputDevices.any { device ->
+                device.getSources() and InputDevice.SOURCE_KEYBOARD != 0
+            },
             reason = "no_keyboard"
         )
         input["inputInjection"] = Probe(
